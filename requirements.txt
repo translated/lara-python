@@ -1,0 +1,6 @@
+requests
+gzip-stream
+
+# Build and deploy tools
+build
+twine
