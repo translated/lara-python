@@ -4,7 +4,11 @@ from typing import Optional, Dict, Union, List
 
 class Model(object):
     @staticmethod
-    def _parse_date(date: Optional[str]) -> datetime:
+    def _parse_date(date: Optional[str]) -> Optional[datetime]:
+        if date is None:
+            return None
+        if date.endswith("Z"):
+            date = date[:-1] + "+00:00"
         return datetime.fromisoformat(date) if date is not None else None
 
     def __init__(self, data: Dict):
