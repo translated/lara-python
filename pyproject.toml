@@ -22,7 +22,7 @@ classifiers = [
 dependencies = ["requests", "gzip-stream"]
 
 [tool.setuptools.dynamic]
-version = { attr = "lara.__version__" }
+version = { attr = "lara_sdk.__version__" }
 
 [project.urls]
 Homepage = "https://github.com/translated/lara-python"
