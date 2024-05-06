@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lara"
+dynamic = ["version"]
+authors = [
+    { name = "Davide Caroselli", email = "davide.caroselli@translated.com" },
+]
+maintainers = [
+    { name = "Davide Caroselli", email = "davide.caroselli@translated.com" },
+]
+description = "A Python library for Lara's API."
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = ["requests", "gzip-stream"]
+
+[tool.setuptools.dynamic]
+version = { attr = "lara.__version__" }
+
+[project.urls]
+Homepage = "https://github.com/translated/lara-python"
+Issues = "https://github.com/translated/lara-python/issues"
