@@ -43,6 +43,7 @@ class Memory(Model):
         super().__init__(data)
         self.name: str = data.get("name")
         self.external_id: Optional[str] = data.get("external_id", None)
+        self.secret: Optional[str] = data.get("secret", None)
         self.owner_id: str = data.get("owner_id")
         self.collaborators_count: int = data.get("collaborators_count")
         self.shared_at: datetime = self._parse_date(data.get("shared_at"))
