@@ -4,3 +4,4 @@ gzip-stream
 # Build and deploy tools
 build
 twine
+virtualenv
