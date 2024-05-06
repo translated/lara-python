@@ -55,7 +55,8 @@ class _SignedSession(requests.Session):
 
     def prepare_request(self, request: requests.Request) -> requests.PreparedRequest:
         result = super().prepare_request(request)
-        result.headers["Authorization"] = f"Lara {self.access_key_id}:{self._sign(result)}"
+        if self.access_key_id is not None and self.access_key_secret is not None:
+            result.headers["Authorization"] = f"Lara {self.access_key_id}:{self._sign(result)}"
         return result
 
     def _sign(self, request: requests.PreparedRequest) -> str:
