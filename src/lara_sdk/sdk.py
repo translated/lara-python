@@ -149,6 +149,16 @@ class MemoryAPI(object):
             "name": name
         }))
 
+    def connect(self, ids: Union[str, List[str]]) -> Union[Optional[Memory], List[Memory]]:
+        results = Memory.parse(self._client.post("/memories/connect", {
+            "ids": ids if isinstance(ids, list) else [ids]
+        }))
+
+        if isinstance(ids, list):
+            return results
+        else:
+            return results[0] if len(results) > 0 else None
+
     def import_tmx(self, id: str, tmx: str) -> MemoryImport:
         with open(tmx, "rb") as stream:
             compressed_stream = GZIPCompressedStream(stream, compression_level=7)
@@ -165,7 +175,7 @@ class Lara(object):
             credentials = Credentials.auto()
 
         self._client = _LaraClient(credentials)
-        self.memories = MemoryAPI(self._client)
+        self.memories: MemoryAPI = MemoryAPI(self._client)
 
     def languages(self) -> List[str]:
         return self._client.get("/languages")
