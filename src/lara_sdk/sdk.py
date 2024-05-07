@@ -5,7 +5,7 @@ import hmac
 import json
 import os
 import time
-from typing import List, Dict, Union, Optional
+from typing import List, Dict, Union, Optional, Callable
 
 import requests
 from gzip_stream import GZIPCompressedStream
@@ -121,8 +121,6 @@ class _LaraClient(object):
                 response = session.request("POST", f"{self.base_url}{path}", headers=headers, json=body)
 
         if response.status_code != requests.codes.ok:
-            if response.status_code == requests.codes.not_found:
-                return None
             raise LaraError.from_response(response)
         return response.json().get("content", None)
 
@@ -141,8 +139,13 @@ class MemoryAPI(object):
             "name": name, "external_id": external_id
         }))
 
-    def get(self, id: str) -> Memory:
-        return Memory.parse(self._client.get(f"/memories/{id}"))
+    def get(self, id: str) -> Optional[Memory]:
+        try:
+            return Memory.parse(self._client.get(f"/memories/{id}"))
+        except LaraError as e:
+            if e.http_code == 404:
+                return None
+            raise
 
     def delete(self, id: str) -> Memory:
         return Memory.parse(self._client.delete(f"/memories/{id}"))
@@ -168,16 +171,39 @@ class MemoryAPI(object):
             return MemoryImport.parse(self._client.post(f"/memories/{id}/import",
                                                         {"compression": "gzip"}, {"tmx": compressed_stream}))
 
-    def get_import(self, id: str) -> MemoryImport:
+    def add_translation(self, id: Union[str, List[str]], source: str, target: str, sentence: str, translation: str,
+                        tuid: str = None, sentence_before: str = None, sentence_after: str = None) -> MemoryImport:
+        body = {"source": source, "target": target, "sentence": sentence, "translation": translation,
+                "tuid": tuid, "sentence_before": sentence_before, "sentence_after": sentence_after}
+
+        if isinstance(id, list):
+            body["ids"] = id
+            return MemoryImport.parse(self._client.put("/memories/content", body))
+        else:
+            return MemoryImport.parse(self._client.put(f"/memories/{id}/content", body))
+
+    def delete_translation(self, id: Union[str, List[str]], source: str, target: str, sentence: str, translation: str,
+                           tuid: str = None, sentence_before: str = None, sentence_after: str = None) -> MemoryImport:
+        body = {"source": source, "target": target, "sentence": sentence, "translation": translation,
+                "tuid": tuid, "sentence_before": sentence_before, "sentence_after": sentence_after}
+
+        if isinstance(id, list):
+            body["ids"] = id
+            return MemoryImport.parse(self._client.delete("/memories/content", body))
+        else:
+            return MemoryImport.parse(self._client.delete(f"/memories/{id}/content", body))
+
+    def _get_import(self, id: str) -> MemoryImport:
         return MemoryImport.parse(self._client.get(f"/memories/imports/{id}"))
 
-    def wait_for(self, import_job: Union[str, MemoryImport], max_secs: int = 0, callback=None) -> MemoryImport:
+    def wait_for(self, import_job: Union[str, MemoryImport], max_secs: int = 0,
+                 callback: Callable[[MemoryImport], None] = None) -> MemoryImport:
         id = import_job.id if isinstance(import_job, MemoryImport) else import_job
 
         start = time.time()
         interval = self._polling_interval_step
         while True:
-            import_status = self.get_import(id)
+            import_status = self._get_import(id)
             if callback is not None:
                 callback(import_status)
 
