@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import json
 import os
+import time
 from typing import List, Dict, Union, Optional
 
 import requests
@@ -129,6 +130,8 @@ class _LaraClient(object):
 class MemoryAPI(object):
     def __init__(self, client: _LaraClient):
         self._client = client
+        self._polling_interval_step = 1
+        self._max_polling_interval = 3
 
     def list(self) -> List[Memory]:
         return Memory.parse(self._client.get("/memories"))
@@ -167,6 +170,25 @@ class MemoryAPI(object):
 
     def get_import(self, id: str) -> MemoryImport:
         return MemoryImport.parse(self._client.get(f"/memories/imports/{id}"))
+
+    def wait_for(self, import_job: Union[str, MemoryImport], max_secs: int = 0, callback=None) -> MemoryImport:
+        id = import_job.id if isinstance(import_job, MemoryImport) else import_job
+
+        start = time.time()
+        interval = self._polling_interval_step
+        while True:
+            import_status = self.get_import(id)
+            if callback is not None:
+                callback(import_status)
+
+            if import_status.progress == 1:
+                return import_status
+
+            if max_secs > 0 and (time.time() - start > max_secs):
+                raise TimeoutError("Import job did not finish in time")
+
+            time.sleep(interval)
+            interval = min(interval * 2, self._max_polling_interval)
 
 
 class Lara(object):
