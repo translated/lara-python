@@ -10,7 +10,7 @@ from typing import List, Dict, Union, Optional, Callable
 import requests
 from gzip_stream import GZIPCompressedStream
 
-from .models import Memory, MemoryImport
+from .models import Memory, MemoryImport, Document
 
 
 class Credentials(object):
@@ -217,6 +217,16 @@ class MemoryAPI(object):
             interval = min(interval * 2, self._max_polling_interval)
 
 
+class TranslateOptions(object):
+    def __init__(self, adapt_to: List[str] = None, instructions: List[str] = None,
+                 content_type: str = None, multiline: bool = True, timeout: int = None):
+        self.adapt_to: List[str] = adapt_to
+        self.multiline: bool = multiline
+        self.content_type: str = content_type
+        self.instructions: List[str] = instructions
+        self.timeout: int = timeout
+
+
 class Lara(object):
     def __init__(self, credentials: Credentials = None):
         if credentials is None:
@@ -227,3 +237,33 @@ class Lara(object):
 
     def languages(self) -> List[str]:
         return self._client.get("/languages")
+
+    def translate(self, source: Optional[str], target: str, text: Union[str, List[str], Document],
+                  options: TranslateOptions = None) -> Union[str, List[str], Document]:
+        if isinstance(text, Document):
+            q = text
+        else:
+            q = Document.wrap(text)
+
+        request = {
+            "source": source,
+            "target": target,
+        }
+
+        if options is not None:
+            request.update({k: v for k, v in options.__dict__.items() if v is not None})
+
+        if q.content_type is not None:
+            request["content_type"] = q.content_type
+
+        request["q"] = [{k: v for k, v in section.__dict__.items() if v is not None} for section in q.sections]
+
+        translation = Document.parse(self._client.get("/translate", request))
+        if isinstance(text, Document):
+            return translation
+
+        translations: List[str] = [section.text for section in translation.sections]
+        if isinstance(text, list):
+            return translations
+        else:
+            return translations[0] if len(translations) > 0 else None

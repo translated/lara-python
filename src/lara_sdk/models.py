@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional, Dict, Union, List
+from typing import Optional, Dict, Union, List, Any
 
 
 class Model(object):
@@ -65,3 +65,93 @@ class MemoryImport(Model):
         self.channel: int = data.get("channel")
         self.size: int = data.get("size")
         self.progress: float = data.get("progress")
+
+
+class Document(object):
+    @classmethod
+    def wrap(cls, text: Union[str, List[str]]) -> 'Document':
+        document = Document()
+        if isinstance(text, str):
+            document.add_section(text)
+        else:
+            for item in text:
+                document.add_section(item)
+        return document
+
+    @staticmethod
+    def is_acceptable_metadata_value(value: Any) -> bool:
+        if value is None:
+            return True
+
+        if isinstance(value, str) or isinstance(value, int) or isinstance(value, float) or isinstance(value, bool):
+            return True
+
+        if isinstance(value, dict):
+            for v in value.values():
+                if not Document.is_acceptable_metadata_value(v):
+                    return False
+            return True
+
+        if isinstance(value, list):
+            for v in value:
+                if not Document.is_acceptable_metadata_value(v):
+                    return False
+            return True
+
+        return False
+
+    @classmethod
+    def parse(cls, data: Optional[Dict]) -> Optional['Document']:
+        if data is None:
+            return None
+
+        document = Document(content_type=data.get("content_type", None))
+        document._detected_language = data.get("detected_language", None)
+        document._adapted_to = data.get("adapted_to", None)
+
+        for translation in data.get("translations", []):
+            document.add_section(translation.get("text"),
+                                 translation.get("translatable"),
+                                 translation.get("metadata", None))
+        return document
+
+    class Section(object):
+        def __init__(self, text: str, translatable: bool = True, metadata: Dict = None):
+            self.text: str = text
+            self.translatable: bool = translatable
+            self.metadata: Optional[Dict] = metadata
+
+            if metadata is not None:
+                for value in metadata.values():
+                    if not Document.is_acceptable_metadata_value(value):
+                        raise ValueError("Metadata values must be strings, numbers, booleans, lists or dictionaries")
+
+        def __repr__(self):
+            return self.__str__()
+
+        def __str__(self):
+            return f"Section(text=\"{self.text}\", translatable={self.translatable}, metadata={self.metadata})"
+
+    def __init__(self, content_type: str = None):
+        self.content_type: Optional[str] = content_type
+        self.sections: List[Document.Section] = []
+
+        self._detected_language: Optional[str] = None
+        self._adapted_to: Optional[List[str]] = None
+
+    @property
+    def detected_language(self) -> Optional[str]:
+        return self._detected_language
+
+    @property
+    def adapted_to(self) -> Optional[List[str]]:
+        return self._adapted_to
+
+    def add_section(self, text: str, translatable: bool = True, metadata: Dict = None):
+        self.sections.append(Document.Section(text, translatable, metadata))
+
+    def __repr__(self):
+        return self.__str__()
+
+    def __str__(self):
+        return str(self.sections)
