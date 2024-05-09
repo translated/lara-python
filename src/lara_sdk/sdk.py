@@ -219,12 +219,13 @@ class MemoryAPI(object):
 
 class TranslateOptions(object):
     def __init__(self, adapt_to: List[str] = None, instructions: List[str] = None,
-                 content_type: str = None, multiline: bool = True, timeout: int = None):
+                 content_type: str = None, multiline: bool = True, timeout: int = None, source_hint: str = None):
         self.adapt_to: List[str] = adapt_to
         self.multiline: bool = multiline
         self.content_type: str = content_type
         self.instructions: List[str] = instructions
         self.timeout: int = timeout
+        self.source_hint: str = source_hint
 
 
 class Lara(object):
