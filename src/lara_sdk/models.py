@@ -101,7 +101,7 @@ class Document(object):
         return False
 
     @classmethod
-    def parse(cls, data: Optional[Dict]) -> Optional['Document']:
+    def parse(cls, source: 'Document', data: Optional[Dict]) -> Optional['Document']:
         if data is None:
             return None
 
@@ -109,10 +109,10 @@ class Document(object):
         document._detected_language = data.get("detected_language", None)
         document._adapted_to = data.get("adapted_to", None)
 
-        for translation in data.get("translations", []):
-            document.add_section(translation.get("text"),
-                                 translation.get("translatable"),
-                                 translation.get("metadata", None))
+        for source_section, translation in zip(source.sections, data.get("translations", [])):
+            document.add_section(translation.get("text") if translation is not None else source_section.text,
+                                 source_section.translatable,
+                                 source_section.metadata)
         return document
 
     class Section(object):
@@ -134,7 +134,7 @@ class Document(object):
 
     def __init__(self, content_type: str = None):
         self.content_type: Optional[str] = content_type
-        self.sections: List[Document.Section] = []
+        self.sections: List['Document.Section'] = []
 
         self._detected_language: Optional[str] = None
         self._adapted_to: Optional[List[str]] = None

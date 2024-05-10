@@ -259,7 +259,7 @@ class Lara(object):
 
         request["q"] = [{k: v for k, v in section.__dict__.items() if v is not None} for section in q.sections]
 
-        translation = Document.parse(self._client.get("/translate", request))
+        translation = Document.parse(q, self._client.get("/translate", request))
         if isinstance(text, Document):
             return translation
 
