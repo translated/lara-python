@@ -13,40 +13,7 @@ from gzip_stream import GZIPCompressedStream
 from .models import Memory, MemoryImport, Document
 
 
-class Credentials(object):
-    @classmethod
-    def auto(cls):
-        # search in ENV
-        access_key_id = os.getenv("LARA_ACCESS_KEY_ID")
-        access_key_secret = os.getenv("LARA_ACCESS_KEY_SECRET")
-
-        if access_key_id is None or access_key_secret is None:
-            raise KeyError("LARA_ACCESS_KEY_ID and LARA_ACCESS_KEY_SECRET not found in ENV")
-
-        return cls(access_key_id, access_key_secret)
-
-    def __init__(self, access_key_id, access_key_secret):
-        self.access_key_id = access_key_id
-        self.access_key_secret = access_key_secret
-
-
-class LaraError(Exception):
-    @classmethod
-    def from_response(cls, response):
-        body = response.json()
-        error = body.get("error", {})
-        name = error.get("type", "UnknownError")
-        message = error.get("message", "An unknown error occurred")
-
-        return cls(response.status_code, name, message)
-
-    def __init__(self, http_code, name, message):
-        super().__init__(f"(HTTP {http_code}) {name}: {message}")
-
-        self.http_code = http_code
-        self.name = name
-        self.message = message
-
+# Client implementation ------------------------------------------------------------------------------------------------
 
 class _SignedSession(requests.Session):
     def __init__(self, access_key_id: str, access_key_secret: str):
@@ -75,14 +42,13 @@ class _SignedSession(requests.Session):
 
 
 class _LaraClient(object):
-    def __init__(self, credentials: Credentials, base_url: str = "http://localhost:8000"):
+    def __init__(self, access_key_id: str, access_key_secret: str, base_url: str = "http://localhost:8000"):
         from . import __version__
 
-        self.base_url = base_url
-        self.access_key_id = credentials.access_key_id
-        self.access_key_secret = credentials.access_key_secret
-        self.sdk_name = "lara-python"
-        self.sdk_version = __version__
+        self.base_url: str = base_url
+        self.session: _SignedSession = _SignedSession(access_key_id, access_key_secret)
+        self.sdk_name: str = "lara-python"
+        self.sdk_version: str = __version__
 
     def get(self, path: str, params: Dict = None) -> Optional[Union[Dict, List]]:
         return self._request("GET", path, body=params)
@@ -114,22 +80,59 @@ class _LaraClient(object):
                 encoded_body = json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode("UTF-8")
                 headers["Content-MD5"] = hashlib.md5(encoded_body).hexdigest()
 
-        with _SignedSession(self.access_key_id, self.access_key_secret) as session:
-            if files is not None:
-                response = session.request("POST", f"{self.base_url}{path}", headers=headers, data=body, files=files)
-            else:
-                response = session.request("POST", f"{self.base_url}{path}", headers=headers, json=body)
+        if files is not None:
+            response = self.session.request("POST", f"{self.base_url}{path}", headers=headers, data=body, files=files)
+        else:
+            response = self.session.request("POST", f"{self.base_url}{path}", headers=headers, json=body)
 
         if response.status_code != requests.codes.ok:
             raise LaraError.from_response(response)
         return response.json().get("content", None)
 
 
+# Lara SDK for Python --------------------------------------------------------------------------------------------------
+
+
+class Credentials(object):
+    @classmethod
+    def auto(cls):
+        # search in ENV
+        access_key_id = os.getenv("LARA_ACCESS_KEY_ID")
+        access_key_secret = os.getenv("LARA_ACCESS_KEY_SECRET")
+
+        if access_key_id is None or access_key_secret is None:
+            raise KeyError("LARA_ACCESS_KEY_ID and LARA_ACCESS_KEY_SECRET not found in ENV")
+
+        return cls(access_key_id, access_key_secret)
+
+    def __init__(self, access_key_id: str, access_key_secret: str):
+        self.access_key_id: str = access_key_id
+        self.access_key_secret: str = access_key_secret
+
+
+class LaraError(Exception):
+    @classmethod
+    def from_response(cls, response):
+        body = response.json()
+        error = body.get("error", {})
+        name = error.get("type", "UnknownError")
+        message = error.get("message", "An unknown error occurred")
+
+        return cls(response.status_code, name, message)
+
+    def __init__(self, http_code: int, name: str, message: str):
+        super().__init__(f"(HTTP {http_code}) {name}: {message}")
+
+        self.http_code: int = http_code
+        self.name: str = name
+        self.message: str = message
+
+
 class MemoryAPI(object):
     def __init__(self, client: _LaraClient):
-        self._client = client
-        self._polling_interval_step = 1
-        self._max_polling_interval = 3
+        self._client: _LaraClient = client
+        self._polling_interval_step: int = 1
+        self._max_polling_interval: int = 3
 
     def list(self) -> List[Memory]:
         return Memory.parse(self._client.get("/memories"))
@@ -233,7 +236,7 @@ class Lara(object):
         if credentials is None:
             credentials = Credentials.auto()
 
-        self._client = _LaraClient(credentials)
+        self._client: _LaraClient = _LaraClient(credentials.access_key_id, credentials.access_key_secret)
         self.memories: MemoryAPI = MemoryAPI(self._client)
 
     def languages(self) -> List[str]:
