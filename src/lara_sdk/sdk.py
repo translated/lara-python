@@ -5,12 +5,12 @@ import hmac
 import json
 import os
 import time
-from typing import List, Dict, Union, Optional, Callable
+from typing import List, Dict, Union, Optional, Callable, Iterable
 
 import requests
 from gzip_stream import GZIPCompressedStream
 
-from .models import Memory, MemoryImport, Document
+from .models import Memory, MemoryImport, TextResult, Document, DocumentResult
 
 
 # Client implementation ------------------------------------------------------------------------------------------------
@@ -242,32 +242,29 @@ class Lara(object):
     def languages(self) -> List[str]:
         return self._client.get("/languages")
 
-    def translate(self, source: Optional[str], target: str, text: Union[str, List[str], Document],
-                  options: TranslateOptions = None) -> Union[str, List[str], Document]:
-        if isinstance(text, Document):
+    def translate(self, text: Union[str, Iterable[str]], *,
+                  source: str = None, target: str, options: TranslateOptions = None
+                  ) -> Union[TextResult, List[TextResult]]:
+        if isinstance(text, str):
+            q = [text]
+        elif hasattr(text, "__iter__"):
             q = text
         else:
-            q = Document.wrap(text)
+            raise ValueError("text must be a string or an iterable of strings")
 
-        request = {
-            "source": source,
-            "target": target,
-        }
+        request = {k: v for k, v in options.__dict__.items() if v is not None} if options is not None else {}
+        request.update({
+            "source": source, "target": target, "q": [{"text": item} for item in q]
+        })
+        results = TextResult.parse(self._client.post("/translate", request))
 
-        if options is not None:
-            request.update({k: v for k, v in options.__dict__.items() if v is not None})
+        return results[0] if isinstance(text, str) else results
 
-        if q.content_type is not None:
-            request["content_type"] = q.content_type
+    def translate_document(self, document: Document, *,
+                           source: str = None, target: str, options: TranslateOptions = None) -> DocumentResult:
+        request = {k: v for k, v in options.__dict__.items() if v is not None} if options is not None else {}
+        request.update({"source": source, "target": target, "q": [
+            {"text": section.text, "translatable": section.translatable} for section in document
+        ]})
 
-        request["q"] = [{k: v for k, v in section.__dict__.items() if v is not None} for section in q.sections]
-
-        translation = Document.parse(q, self._client.get("/translate", request))
-        if isinstance(text, Document):
-            return translation
-
-        translations: List[str] = [section.text for section in translation.sections]
-        if isinstance(text, list):
-            return translations
-        else:
-            return translations[0] if len(translations) > 0 else None
+        return DocumentResult(document, self._client.post("/translate/document", request))

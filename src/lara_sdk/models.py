@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional, Dict, Union, List, Any
+from typing import Optional, Dict, Union, List
 
 
 class Model(object):
@@ -10,11 +10,6 @@ class Model(object):
         if date.endswith("Z"):
             date = date[:-1] + "+00:00"
         return datetime.fromisoformat(date) if date is not None else None
-
-    def __init__(self, data: Dict):
-        self.id: str = data.get("id")
-        self.created_at: datetime = self._parse_date(data.get("created_at", None))
-        self.updated_at: datetime = self._parse_date(data.get("updated_at", None))
 
     def __repr__(self):
         return self.__str__()
@@ -40,7 +35,9 @@ class Memory(Model):
         return [cls(item) for item in data] if isinstance(data, list) else cls(data)
 
     def __init__(self, data: Dict):
-        super().__init__(data)
+        self.id: str = data.get("id")
+        self.created_at: datetime = self._parse_date(data.get("created_at", None))
+        self.updated_at: datetime = self._parse_date(data.get("updated_at", None))
         self.name: str = data.get("name")
         self.external_id: Optional[str] = data.get("external_id", None)
         self.secret: Optional[str] = data.get("secret", None)
@@ -58,7 +55,9 @@ class MemoryImport(Model):
         return [cls(item) for item in data] if isinstance(data, list) else cls(data)
 
     def __init__(self, data: Dict):
-        super().__init__(data)
+        self.id: str = data.get("id")
+        self.created_at: datetime = self._parse_date(data.get("created_at", None))
+        self.updated_at: datetime = self._parse_date(data.get("updated_at", None))
         self.id: str = data.get("id")
         self.begin: int = data.get("begin")
         self.end: int = data.get("end")
@@ -68,94 +67,61 @@ class MemoryImport(Model):
 
 
 class Document(object):
-    @classmethod
-    def wrap(cls, text: Union[str, List[str]]) -> 'Document':
-        document = Document()
-        if isinstance(text, str):
-            document.add_section(text)
-        else:
-            for item in text:
-                document.add_section(item)
-        return document
-
-    @staticmethod
-    def is_acceptable_metadata_value(value: Any) -> bool:
-        if value is None:
-            return True
-
-        if isinstance(value, str) or isinstance(value, int) or isinstance(value, float) or isinstance(value, bool):
-            return True
-
-        if isinstance(value, dict):
-            for v in value.values():
-                if not Document.is_acceptable_metadata_value(v):
-                    return False
-            return True
-
-        if isinstance(value, list):
-            for v in value:
-                if not Document.is_acceptable_metadata_value(v):
-                    return False
-            return True
-
-        return False
-
-    @classmethod
-    def parse(cls, source: 'Document', data: Optional[Dict]) -> Optional['Document']:
-        if data is None:
-            return None
-
-        document = Document(content_type=data.get("content_type", None))
-        document._detected_language = data.get("detected_language", None)
-        document._adapted_to = data.get("adapted_to", None)
-
-        for source_section, translation in zip(source.sections, data.get("translations", [])):
-            document.add_section(translation.get("text") if translation is not None else source_section.text,
-                                 source_section.translatable,
-                                 source_section.metadata)
-        return document
-
     class Section(object):
-        def __init__(self, text: str, translatable: bool = True, metadata: Dict = None):
+        def __init__(self, text: str, translatable: bool = True):
             self.text: str = text
             self.translatable: bool = translatable
-            self.metadata: Optional[Dict] = metadata
-
-            if metadata is not None:
-                for value in metadata.values():
-                    if not Document.is_acceptable_metadata_value(value):
-                        raise ValueError("Metadata values must be strings, numbers, booleans, lists or dictionaries")
 
         def __repr__(self):
             return self.__str__()
 
         def __str__(self):
-            return f"Section(text=\"{self.text}\", translatable={self.translatable}, metadata={self.metadata})"
+            return f"Section(translatable={self.translatable}, \"{self.text}\")"
 
-    def __init__(self, text: str = None, content_type: str = None):
-        self.content_type: Optional[str] = content_type
-        self.sections: List['Document.Section'] = []
+    def __init__(self, text: Union[str, List[str]] = None):
+        self._sections: List['Document.Section'] = []
 
         if text is not None:
-            self.add_section(text)
+            if isinstance(text, str):
+                self.add_section(text)
+            else:
+                for item in text:
+                    self.add_section(item)
 
-        self._detected_language: Optional[str] = None
-        self._adapted_to: Optional[List[str]] = None
+    def __iter__(self):
+        return iter(self._sections)
 
-    @property
-    def detected_language(self) -> Optional[str]:
-        return self._detected_language
-
-    @property
-    def adapted_to(self) -> Optional[List[str]]:
-        return self._adapted_to
-
-    def add_section(self, text: str, translatable: bool = True, metadata: Dict = None) -> 'Document':
-        self.sections.append(Document.Section(text, translatable, metadata))
-        return self
+    def add_section(self, text: str, translatable: bool = True):
+        self._sections.append(self.Section(text, translatable))
 
     def __repr__(self):
         return self.__str__()
 
     def __str__(self):
-        return str(self.sections)
+        return str(self._sections)
+
+
+class TextResult(Model):
+    @classmethod
+    def parse(cls, data: Optional[Dict]) -> Optional[Union['TextResult', List['TextResult']]]:
+        if data is None:
+            return None
+
+        return [cls(item) for item in data] if isinstance(data, list) else cls(data)
+
+    def __init__(self, data: Dict):
+        self.content_type: str = data.get("content_type")
+        self.source_language: str = data.get("source_language")
+        self.translation: str = data.get("translation")
+        self.adapted_to: Optional[List[str]] = data.get("adapted_to", None)
+
+
+class DocumentResult(Model):
+    def __init__(self, document: Document, data: Dict):
+        self.content_type: str = data.get("content_type")
+        self.source_language: str = data.get("source_language")
+        self.translation: List[Document.Section] = [
+            Document.Section(translation or section.text, section.translatable)
+            for section, translation in zip(document, data.get("translations"))
+        ]
+        self.adapted_to: Optional[List[str]] = data.get("adapted_to", None)
