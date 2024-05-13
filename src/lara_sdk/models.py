@@ -132,9 +132,12 @@ class Document(object):
         def __str__(self):
             return f"Section(text=\"{self.text}\", translatable={self.translatable}, metadata={self.metadata})"
 
-    def __init__(self, content_type: str = None):
+    def __init__(self, text: str = None, content_type: str = None):
         self.content_type: Optional[str] = content_type
         self.sections: List['Document.Section'] = []
+
+        if text is not None:
+            self.add_section(text)
 
         self._detected_language: Optional[str] = None
         self._adapted_to: Optional[List[str]] = None
@@ -147,8 +150,9 @@ class Document(object):
     def adapted_to(self) -> Optional[List[str]]:
         return self._adapted_to
 
-    def add_section(self, text: str, translatable: bool = True, metadata: Dict = None):
+    def add_section(self, text: str, translatable: bool = True, metadata: Dict = None) -> 'Document':
         self.sections.append(Document.Section(text, translatable, metadata))
+        return self
 
     def __repr__(self):
         return self.__str__()
