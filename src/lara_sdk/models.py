@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional, Dict, Union, List
+from typing import Optional, Dict, Union, List, Iterable
 
 
 class Model(object):
@@ -28,7 +28,7 @@ class Model(object):
 
 class Memory(Model):
     @classmethod
-    def parse(cls, data: Optional[Dict]) -> Optional[Union['Memory', List['Memory']]]:
+    def parse(cls, data: Optional[Union[List[Dict], Dict]]) -> Optional[Union['Memory', List['Memory']]]:
         if data is None:
             return None
 
@@ -48,7 +48,7 @@ class Memory(Model):
 
 class MemoryImport(Model):
     @classmethod
-    def parse(cls, data: Optional[Dict]) -> Optional[Union['MemoryImport', List['MemoryImport']]]:
+    def parse(cls, data: Optional[Union[List[Dict], Dict]]) -> Optional[Union['MemoryImport', List['MemoryImport']]]:
         if data is None:
             return None
 
@@ -78,7 +78,7 @@ class Document(object):
         def __str__(self):
             return f"Section(translatable={self.translatable}, \"{self.text}\")"
 
-    def __init__(self, text: Union[str, List[str]] = None):
+    def __init__(self, text: Union[str, Iterable[str]] = None):
         self._sections: List['Document.Section'] = []
 
         if text is not None:
@@ -103,7 +103,7 @@ class Document(object):
 
 class TextResult(Model):
     @classmethod
-    def parse(cls, data: Optional[Dict]) -> Optional[Union['TextResult', List['TextResult']]]:
+    def parse(cls, data: Optional[Union[List[Dict], Dict]]) -> Optional[Union['TextResult', List['TextResult']]]:
         if data is None:
             return None
 
