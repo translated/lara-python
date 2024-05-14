@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional, Dict, Union, List, Iterable
+from typing import Optional, Dict, Union, List, Iterable, Iterator
 
 
 class Model(object):
@@ -88,7 +88,7 @@ class Document(object):
                 for item in text:
                     self.add_section(item)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator['Document.Section']:
         return iter(self._sections)
 
     def add_section(self, text: str, translatable: bool = True):
@@ -125,3 +125,6 @@ class DocumentResult(Model):
             for section, translation in zip(document, data.get("translations"))
         ]
         self.adapted_to: Optional[List[str]] = data.get("adapted_to", None)
+
+    def __iter__(self) -> Iterator[Document.Section]:
+        return iter(self.translations)
