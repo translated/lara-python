@@ -120,7 +120,7 @@ class DocumentResult(Model):
     def __init__(self, document: Document, data: Dict):
         self.content_type: str = data.get("content_type")
         self.source_language: str = data.get("source_language")
-        self.translation: List[Document.Section] = [
+        self.translations: List[Document.Section] = [
             Document.Section(translation or section.text, section.translatable)
             for section, translation in zip(document, data.get("translations"))
         ]
