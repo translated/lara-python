@@ -4,20 +4,56 @@ from collections import defaultdict
 from typing import Tuple, Dict
 
 
-class Credentials(object):
+class Credentials:
+    """
+    Credentials for accessing the Lara API. A credentials object has two properties:
+    - access_key_id: The access key ID.
+    - access_key_secret: The access key secret.
+
+    IMPORTANT: Do not hard-code your access key ID and secret in your code. Always use environment variables or
+    a credentials file. Please note also that the access key secret is never sent directly via HTTP, but it is used to
+    sign the request. If you suspect that your access key secret has been compromised, you can revoke it in the Lara
+    dashboard.
+    """
+
     @classmethod
-    def load(cls, profile: str = None):
+    def load(cls, profile: str = None) -> 'Credentials':
+        """
+        Load credentials from the environment or a credentials file.
+        :param profile: The desired profile from the credentials file (default profile is used if not specified).
+        :return: A Credentials object.
+        """
         try:
             return EnvironmentCredentials()
         except KeyError:
             return FileCredentials(profile)
 
     def __init__(self, access_key_id: str, access_key_secret: str):
-        self.access_key_id: str = access_key_id
-        self.access_key_secret: str = access_key_secret
+        self._access_key_id: str = access_key_id
+        self._access_key_secret: str = access_key_secret
+
+    @property
+    def access_key_id(self) -> str:
+        """
+        :return: The access key ID.
+        """
+        return self._access_key_id
+
+    @property
+    def access_key_secret(self) -> str:
+        """
+        :return: The access key secret.
+        """
+        return self._access_key_secret
 
 
 class EnvironmentCredentials(Credentials):
+    """
+    Credentials loaded from environment variables. The following environment variables are used:
+    - LARA_ACCESS_KEY_ID: The access key ID.
+    - LARA_ACCESS_KEY_SECRET: The access key secret.
+    """
+
     def __init__(self,
                  access_key_id_env: str = 'LARA_ACCESS_KEY_ID',
                  access_key_secret_env: str = 'LARA_ACCESS_KEY_SECRET'):
@@ -31,9 +67,13 @@ class EnvironmentCredentials(Credentials):
 
 
 class FileCredentials(Credentials):
+    """
+    Credentials loaded from the credentials file ("~/.lara/credentials").
+    """
+
     @staticmethod
     def __read_credentials_file(credentials_file: str) -> Dict[str, Tuple[str, str]]:
-        with open(credentials_file, 'r') as f:
+        with open(credentials_file, 'r', encoding='utf-8') as f:
             lines = f.readlines()
 
         credentials = defaultdict(dict)

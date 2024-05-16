@@ -5,7 +5,7 @@ from typing import Optional, Union, List, Dict, Iterator, Iterable, Callable
 from gzip_stream import GZIPCompressedStream
 
 from ._client import LaraObject, LaraClient, LaraError
-from .credentials import Credentials
+from ._credentials import Credentials
 
 
 # Objects --------------------------------------------------------------------------------------------------------------
@@ -51,8 +51,8 @@ class MemoryImport(LaraObject):
         self.progress: float = data.get('progress')
 
 
-class Document(object):
-    class Section(object):
+class Document:
+    class Section:
         def __init__(self, text: str, translatable: bool = True):
             self.text: str = text
             self.translatable: bool = translatable
@@ -118,7 +118,7 @@ class DocumentResult(LaraObject):
 # Translator SDK -------------------------------------------------------------------------------------------------------
 
 
-class LaraMemories(object):
+class LaraMemories:
     def __init__(self, client: LaraClient):
         self._client: LaraClient = client
         self._polling_interval_step: int = 1
@@ -132,19 +132,19 @@ class LaraMemories(object):
             'name': name, 'external_id': external_id
         }))
 
-    def get(self, id: str) -> Optional[Memory]:
+    def get(self, id_: str) -> Optional[Memory]:
         try:
-            return Memory.parse(self._client.get(f'/memories/{id}'))
+            return Memory.parse(self._client.get(f'/memories/{id_}'))
         except LaraError as e:
             if e.http_code == 404:
                 return None
             raise
 
-    def delete(self, id: str) -> Memory:
-        return Memory.parse(self._client.delete(f'/memories/{id}'))
+    def delete(self, id_: str) -> Memory:
+        return Memory.parse(self._client.delete(f'/memories/{id_}'))
 
-    def update(self, id: str, name: str) -> Memory:
-        return Memory.parse(self._client.put(f'/memories/{id}', {
+    def update(self, id_: str, name: str) -> Memory:
+        return Memory.parse(self._client.put(f'/memories/{id_}', {
             'name': name
         }))
 
@@ -155,62 +155,60 @@ class LaraMemories(object):
 
         if isinstance(ids, list):
             return results
-        else:
-            return results[0] if len(results) > 0 else None
+        return results[0] if len(results) > 0 else None
 
-    def import_tmx(self, id: str, tmx: str) -> MemoryImport:
+    def import_tmx(self, id_: str, tmx: str) -> MemoryImport:
         with open(tmx, 'rb') as stream:
             compressed_stream = GZIPCompressedStream(stream, compression_level=7)
-            return MemoryImport.parse(self._client.post(f'/memories/{id}/import',
+            return MemoryImport.parse(self._client.post(f'/memories/{id_}/import',
                                                         {'compression': 'gzip'}, {'tmx': compressed_stream}))
 
-    def add_translation(self, id: Union[str, List[str]], source: str, target: str, sentence: str, translation: str,
-                        tuid: str = None, sentence_before: str = None, sentence_after: str = None) -> MemoryImport:
+    def add_translation(self, id_: Union[str, List[str]], source: str, target: str, sentence: str, translation: str,
+                        *, tuid: str = None, sentence_before: str = None, sentence_after: str = None) -> MemoryImport:
         body = {'source': source, 'target': target, 'sentence': sentence, 'translation': translation,
                 'tuid': tuid, 'sentence_before': sentence_before, 'sentence_after': sentence_after}
 
-        if isinstance(id, list):
-            body['ids'] = id
+        if isinstance(id_, list):
+            body['ids'] = id_
             return MemoryImport.parse(self._client.put('/memories/content', body))
-        else:
-            return MemoryImport.parse(self._client.put(f'/memories/{id}/content', body))
+        return MemoryImport.parse(self._client.put(f'/memories/{id_}/content', body))
 
-    def delete_translation(self, id: Union[str, List[str]], source: str, target: str, sentence: str, translation: str,
-                           tuid: str = None, sentence_before: str = None, sentence_after: str = None) -> MemoryImport:
+    def delete_translation(self, id_: Union[str, List[str]], source: str, target: str, sentence: str, translation: str,
+                           *, tuid: str = None, sentence_before: str = None, sentence_after: str = None
+                           ) -> MemoryImport:
         body = {'source': source, 'target': target, 'sentence': sentence, 'translation': translation,
                 'tuid': tuid, 'sentence_before': sentence_before, 'sentence_after': sentence_after}
 
-        if isinstance(id, list):
-            body['ids'] = id
+        if isinstance(id_, list):
+            body['ids'] = id_
             return MemoryImport.parse(self._client.delete('/memories/content', body))
-        else:
-            return MemoryImport.parse(self._client.delete(f'/memories/{id}/content', body))
+        return MemoryImport.parse(self._client.delete(f'/memories/{id_}/content', body))
 
-    def _get_import(self, id: str) -> MemoryImport:
-        return MemoryImport.parse(self._client.get(f'/memories/imports/{id}'))
+    def _get_import(self, id_: str) -> MemoryImport:
+        return MemoryImport.parse(self._client.get(f'/memories/imports/{id_}'))
 
     def wait_for(self, import_job: Union[str, MemoryImport], max_secs: int = 0,
                  callback: Callable[[MemoryImport], None] = None) -> MemoryImport:
-        id = import_job.id if isinstance(import_job, MemoryImport) else import_job
+        id_ = import_job.id if isinstance(import_job, MemoryImport) else import_job
 
         start = time.time()
         interval = self._polling_interval_step
         while True:
-            import_status = self._get_import(id)
+            import_status = self._get_import(id_)
             if callback is not None:
                 callback(import_status)
 
             if import_status.progress == 1:
                 return import_status
 
-            if max_secs > 0 and (time.time() - start > max_secs):
+            if 0 < max_secs < time.time() - start:
                 raise TimeoutError('Import job did not finish in time')
 
             time.sleep(interval)
             interval = min(interval * 2, self._max_polling_interval)
 
 
-class LaraTranslator(object):
+class LaraTranslator:
     def __init__(self, credentials: Credentials = None):
         if credentials is None:
             credentials = Credentials.load()
@@ -221,7 +219,8 @@ class LaraTranslator(object):
     def languages(self) -> List[str]:
         return self._client.get('/languages')
 
-    def translate(self, text: Union[str, Iterable[str]], *, source: str = None, source_hint: str = None, target: str,
+    def translate(self, text: Union[str, Iterable[str]], *,
+                  source: str = None, source_hint: str = None, target: str,
                   adapt_to: List[str] = None, instructions: List[str] = None,
                   content_type: str = None, multiline: bool = True) -> Union[TextResult, List[TextResult]]:
         if isinstance(text, str):
@@ -239,7 +238,8 @@ class LaraTranslator(object):
 
         return results[0] if isinstance(text, str) else results
 
-    def translate_document(self, document: Document, *, source: str = None, source_hint: str = None, target: str,
+    def translate_document(self, document: Document, *,
+                           source: str = None, source_hint: str = None, target: str,
                            adapt_to: List[str] = None, instructions: List[str] = None,
                            content_type: str = None, multiline: bool = True) -> DocumentResult:
         return DocumentResult(document, self._client.post('/translate/document', {

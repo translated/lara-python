@@ -35,8 +35,18 @@ class _SignedSession(requests.Session):
 
 
 class LaraError(Exception):
+    """
+    Represents an error returned by the Lara API.
+    An error consists of an HTTP status code (int), a name (string) and, optionally, a message (string).
+    """
+
     @classmethod
     def from_response(cls, response):
+        """
+        Creates a LaraError from a "request" response object.
+        :param response: The received response object.
+        :return: A LaraError object.
+        """
         body = response.json()
         error = body.get('error', {})
         name = error.get('type', 'UnknownError')
@@ -52,7 +62,11 @@ class LaraError(Exception):
         self.message: str = message
 
 
-class LaraObject(object):
+class LaraObject:
+    """
+    This serves as a base class for all Lara API returned objects.
+    """
+
     @staticmethod
     def _parse_date(date: Optional[str]) -> Optional[datetime.datetime]:
         if date is None:
@@ -76,25 +90,53 @@ class LaraObject(object):
         return result[:-2] + ")"
 
 
-class LaraClient(object):
-    def __init__(self, access_key_id: str, access_key_secret: str, base_url: str = None):
-        from . import __version__
+class LaraClient:
+    """
+    This class is used to interact with Lara via the REST API.
+    """
 
+    def __init__(self, access_key_id: str, access_key_secret: str, base_url: str = None):
         self.base_url: str = base_url or 'https://api.hellolara.ai'
         self.session: _SignedSession = _SignedSession(access_key_id, access_key_secret)
         self.sdk_name: str = 'lara-python'
-        self.sdk_version: str = __version__
+        self.sdk_version: str = __import__('lara_sdk').__version__
 
     def get(self, path: str, params: Dict = None) -> Optional[Union[Dict, List]]:
+        """
+        Sends a GET request to the Lara API.
+        :param path: The path to send the request to.
+        :param params: The parameters to send with the request.
+        :return: The JSON response from the API.
+        """
         return self._request('GET', path, body=params)
 
     def delete(self, path: str, params: Dict = None) -> Optional[Union[Dict, List]]:
+        """
+        Sends a DELETE request to the Lara API.
+        :param path: The path to send the request to.
+        :param params: The parameters to send with the request.
+        :return: The JSON response from the API.
+        """
         return self._request('DELETE', path, body=params)
 
     def post(self, path: str, body: Dict = None, files: Dict = None) -> Optional[Union[Dict, List]]:
+        """
+        Sends a POST request to the Lara API.
+        :param path: The path to send the request to.
+        :param body: The parameters to send with the request.
+        :param files: The files to send with the request. If present, request will be sent as multipart/form-data.
+        :return: The JSON response from the API.
+        """
         return self._request('POST', path, body, files)
 
     def put(self, path: str, body: Dict = None, files: Dict = None) -> Optional[Union[Dict, List]]:
+        """
+        Sends a PUT request to the Lara API.
+        :param path: The path to send the request to.
+        :param body: The parameters to send with the request.
+        :param files: The files to send with the request. If present, request will be sent as multipart/form-data.
+        :return: The JSON response from the API.
+        """
         return self._request('PUT', path, body, files)
 
     def _request(self, method: str, path: str, body: Dict = None, files: Dict = None) -> Optional[Union[Dict, List]]:
@@ -120,6 +162,6 @@ class LaraClient(object):
         else:
             response = self.session.request('POST', f'{self.base_url}{path}', headers=headers, json=body)
 
-        if response.status_code != requests.codes.ok:
+        if 200 <= response.status_code < 300:
             raise LaraError.from_response(response)
         return response.json().get('content', None)
