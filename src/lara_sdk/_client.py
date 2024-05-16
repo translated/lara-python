@@ -163,5 +163,5 @@ class LaraClient:
             response = self.session.request('POST', f'{self.base_url}{path}', headers=headers, json=body)
 
         if 200 <= response.status_code < 300:
-            raise LaraError.from_response(response)
-        return response.json().get('content', None)
+            return response.json().get('content', None)
+        raise LaraError.from_response(response)
