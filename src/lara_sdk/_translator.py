@@ -220,9 +220,9 @@ class LaraTranslator:
         return self._client.get('/languages')
 
     def translate(self, text: Union[str, Iterable[str]], *,
-                  source: str = None, source_hint: str = None, target: str,
-                  adapt_to: List[str] = None, instructions: List[str] = None,
-                  content_type: str = None, multiline: bool = True) -> Union[TextResult, List[TextResult]]:
+                  source: str = None, source_hint: str = None, target: str, adapt_to: List[str] = None,
+                  instructions: List[str] = None, content_type: str = None,
+                  multiline: bool = True, timeout_ms: int = None) -> Union[TextResult, List[TextResult]]:
         if isinstance(text, str):
             q = [text]
         elif hasattr(text, '__iter__'):
@@ -232,7 +232,7 @@ class LaraTranslator:
 
         results = TextResult.parse(self._client.post('/translate', {
             'source': source, 'target': target, 'source_hint': source_hint, 'content_type': content_type,
-            'multiline': multiline, 'adapt_to': adapt_to, 'instructions': instructions,
+            'multiline': multiline, 'adapt_to': adapt_to, 'instructions': instructions, 'timeout': timeout_ms,
             'q': [{'text': item} for item in q]
         }))
 
@@ -241,10 +241,9 @@ class LaraTranslator:
     def translate_document(self, document: Document, *,
                            source: str = None, source_hint: str = None, target: str,
                            adapt_to: List[str] = None, instructions: List[str] = None,
-                           content_type: str = None, multiline: bool = True) -> DocumentResult:
+                           content_type: str = None, multiline: bool = True, timeout_ms: int = None) -> DocumentResult:
         return DocumentResult(document, self._client.post('/translate/document', {
             'source': source, 'target': target, 'source_hint': source_hint, 'content_type': content_type,
-            'multiline': multiline, 'adapt_to': adapt_to, 'instructions': instructions, 'q': [
-                {'text': section.text, 'translatable': section.translatable} for section in document
-            ]
+            'multiline': multiline, 'adapt_to': adapt_to, 'instructions': instructions, 'timeout': timeout_ms,
+            'q': [{'text': section.text, 'translatable': section.translatable} for section in document]
         }))
