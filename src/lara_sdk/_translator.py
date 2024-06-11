@@ -118,8 +118,7 @@ class DocumentResult(LaraObject):
 class LaraMemories:
     def __init__(self, client: LaraClient):
         self._client: LaraClient = client
-        self._polling_interval_step: int = 1
-        self._max_polling_interval: int = 3
+        self._polling_interval: int = 2
 
     def list(self) -> List[Memory]:
         return Memory.parse(self._client.get('/memories'))
@@ -181,28 +180,24 @@ class LaraMemories:
             return MemoryImport.parse(self._client.delete('/memories/content', body))
         return MemoryImport.parse(self._client.delete(f'/memories/{id_}/content', body))
 
-    def _get_import(self, id_: str) -> MemoryImport:
+    def get_import_status(self, id_: str) -> MemoryImport:
         return MemoryImport.parse(self._client.get(f'/memories/imports/{id_}'))
 
-    def wait_for(self, import_job: Union[str, MemoryImport], max_secs: int = 0,
-                 callback: Callable[[MemoryImport], None] = None) -> MemoryImport:
-        id_ = import_job.id if isinstance(import_job, MemoryImport) else import_job
-
+    def wait_for_import(self, memory_import: MemoryImport, *,
+                        update_callback: Callable[[MemoryImport], None] = None,
+                        max_wait_time: float = 0) -> MemoryImport:
         start = time.time()
-        interval = self._polling_interval_step
-        while True:
-            import_status = self._get_import(id_)
-            if callback is not None:
-                callback(import_status)
+        while memory_import.progress < 1.:
+            if 0 < max_wait_time < time.time() - start:
+                raise TimeoutError()
 
-            if import_status.progress == 1:
-                return import_status
+            time.sleep(self._polling_interval)
 
-            if 0 < max_secs < time.time() - start:
-                raise TimeoutError('Import job did not finish in time')
+            memory_import = self.get_import_status(memory_import.id)
+            if update_callback is not None:
+                update_callback(memory_import)
 
-            time.sleep(interval)
-            interval = min(interval * 2, self._max_polling_interval)
+        return memory_import
 
 
 class LaraTranslator:
