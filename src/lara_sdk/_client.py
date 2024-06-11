@@ -21,10 +21,10 @@ class _SignedSession(requests.Session):
         return result
 
     def _sign(self, request: requests.PreparedRequest) -> str:
-        date = request.headers.get('Date')
-        content_md5 = request.headers.get('Content-MD5', '')
-        content_type = request.headers.get('Content-Type', '')
-        method = request.headers.get('X-HTTP-Method-Override', request.method)
+        date = request.headers.get('Date').strip()
+        content_md5 = request.headers.get('Content-MD5', '').strip()
+        content_type = request.headers.get('Content-Type', '').split(';', 1)[0].strip()
+        method = request.headers.get('X-HTTP-Method-Override', request.method).strip().upper()
         path = request.path_url
 
         raw = f'{method}\n{path}\n{content_md5}\n{content_type}\n{date}'.encode('UTF-8')
