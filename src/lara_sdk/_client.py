@@ -30,7 +30,7 @@ class _SignedSession(requests.Session):
         raw = f'{method}\n{path}\n{content_md5}\n{content_type}\n{date}'.encode('UTF-8')
         secret = self.access_key_secret.encode('UTF-8')
 
-        signature = hmac.new(secret, raw, hashlib.sha1).digest()
+        signature = hmac.new(secret, raw, hashlib.sha256).digest()
         return base64.b64encode(signature).decode('UTF-8')
 
 
