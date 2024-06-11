@@ -41,9 +41,6 @@ class MemoryImport(LaraObject):
 
     def __init__(self, data: Dict):
         self.id: str = data.get('id')
-        self.created_at: datetime = self._parse_date(data.get('created_at', None))
-        self.updated_at: datetime = self._parse_date(data.get('updated_at', None))
-        self.id: str = data.get('id')
         self.begin: int = data.get('begin')
         self.end: int = data.get('end')
         self.channel: int = data.get('channel')
