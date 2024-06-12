@@ -12,13 +12,6 @@ from ._credentials import Credentials
 
 
 class Memory(LaraObject):
-    @classmethod
-    def parse(cls, data: Optional[Union[List[Dict], Dict]]) -> Optional[Union['Memory', List['Memory']]]:
-        if data is None:
-            return None
-
-        return [cls(item) for item in data] if isinstance(data, list) else cls(data)
-
     def __init__(self, data: Dict):
         self.id: str = data.get('id')
         self.created_at: datetime = self._parse_date(data.get('created_at', None))
@@ -32,13 +25,6 @@ class Memory(LaraObject):
 
 
 class MemoryImport(LaraObject):
-    @classmethod
-    def parse(cls, data: Optional[Union[List[Dict], Dict]]) -> Optional[Union['MemoryImport', List['MemoryImport']]]:
-        if data is None:
-            return None
-
-        return [cls(item) for item in data] if isinstance(data, list) else cls(data)
-
     def __init__(self, data: Dict):
         self.id: str = data.get('id')
         self.begin: int = data.get('begin')
@@ -49,13 +35,6 @@ class MemoryImport(LaraObject):
 
 
 class TextResult(LaraObject):
-    @classmethod
-    def parse(cls, data: Optional[Union[List[Dict], Dict]]) -> Optional[Union['TextResult', List['TextResult']]]:
-        if data is None:
-            return None
-
-        return [cls(item) for item in data] if isinstance(data, list) else cls(data)
-
     def __init__(self, data: Dict):
         self.content_type: str = data.get('content_type')
         self.source_language: str = data.get('source_language')
@@ -68,14 +47,6 @@ class DocumentResult(LaraObject):
         def __init__(self, data: Dict):
             self.text: str = data.get('text')
             self.translatable: bool = data.get('translatable', True)
-
-    @classmethod
-    def parse(cls, data: Optional[Union[List[Dict], Dict]]) \
-            -> Optional[Union['DocumentResult', List['DocumentResult']]]:
-        if data is None:
-            return None
-
-        return [cls(item) for item in data] if isinstance(data, list) else cls(data)
 
     def __init__(self, data: Dict):
         self.content_type: str = data.get('content_type')
@@ -131,33 +102,33 @@ class LaraMemories:
         self._polling_interval: int = 2
 
     def list(self) -> List[Memory]:
-        return Memory.parse(self._client.get('/memories'))
+        return [Memory(e) for e in self._client.get('/memories')]
 
     def create(self, name: str, external_id: str = None) -> Memory:
-        return Memory.parse(self._client.post('/memories', {
+        return Memory(self._client.post('/memories', {
             'name': name, 'external_id': external_id
         }))
 
     def get(self, id_: str) -> Optional[Memory]:
         try:
-            return Memory.parse(self._client.get(f'/memories/{id_}'))
+            return Memory(self._client.get(f'/memories/{id_}'))
         except LaraError as e:
             if e.http_code == 404:
                 return None
             raise
 
     def delete(self, id_: str) -> Memory:
-        return Memory.parse(self._client.delete(f'/memories/{id_}'))
+        return Memory(self._client.delete(f'/memories/{id_}'))
 
     def update(self, id_: str, name: str) -> Memory:
-        return Memory.parse(self._client.put(f'/memories/{id_}', {
+        return Memory(self._client.put(f'/memories/{id_}', {
             'name': name
         }))
 
     def connect(self, ids: Union[str, List[str]]) -> Union[Optional[Memory], List[Memory]]:
-        results = Memory.parse(self._client.post('/memories/connect', {
+        results = [Memory(e) for e in self._client.post('/memories/connect', {
             'ids': ids if isinstance(ids, list) else [ids]
-        }))
+        })]
 
         if isinstance(ids, list):
             return results
@@ -166,8 +137,8 @@ class LaraMemories:
     def import_tmx(self, id_: str, tmx: str) -> MemoryImport:
         with open(tmx, 'rb') as stream:
             compressed_stream = GZIPCompressedStream(stream, compression_level=7)
-            return MemoryImport.parse(self._client.post(f'/memories/{id_}/import',
-                                                        {'compression': 'gzip'}, {'tmx': compressed_stream}))
+            return MemoryImport(self._client.post(f'/memories/{id_}/import',
+                                                  {'compression': 'gzip'}, {'tmx': compressed_stream}))
 
     def add_translation(self, id_: Union[str, List[str]], source: str, target: str, sentence: str, translation: str,
                         *, tuid: str = None, sentence_before: str = None, sentence_after: str = None) -> MemoryImport:
@@ -176,8 +147,8 @@ class LaraMemories:
 
         if isinstance(id_, list):
             body['ids'] = id_
-            return MemoryImport.parse(self._client.put('/memories/content', body))
-        return MemoryImport.parse(self._client.put(f'/memories/{id_}/content', body))
+            return MemoryImport(self._client.put('/memories/content', body))
+        return MemoryImport(self._client.put(f'/memories/{id_}/content', body))
 
     def delete_translation(self, id_: Union[str, List[str]], source: str, target: str, sentence: str, translation: str,
                            *, tuid: str = None, sentence_before: str = None, sentence_after: str = None
@@ -187,11 +158,11 @@ class LaraMemories:
 
         if isinstance(id_, list):
             body['ids'] = id_
-            return MemoryImport.parse(self._client.delete('/memories/content', body))
-        return MemoryImport.parse(self._client.delete(f'/memories/{id_}/content', body))
+            return MemoryImport(self._client.delete('/memories/content', body))
+        return MemoryImport(self._client.delete(f'/memories/{id_}/content', body))
 
     def get_import_status(self, id_: str) -> MemoryImport:
-        return MemoryImport.parse(self._client.get(f'/memories/imports/{id_}'))
+        return MemoryImport(self._client.get(f'/memories/imports/{id_}'))
 
     def wait_for_import(self, memory_import: MemoryImport, *,
                         update_callback: Callable[[MemoryImport], None] = None,
@@ -232,16 +203,18 @@ class LaraTranslator:
         else:
             raise ValueError('text must be a string or an iterable of strings')
 
-        return TextResult.parse(self._client.post('/translate', {
+        result = self._client.post('/translate', {
             'source': source, 'target': target, 'source_hint': source_hint, 'content_type': content_type,
             'multiline': multiline, 'adapt_to': adapt_to, 'instructions': instructions, 'timeout': timeout_ms, 'q': q
-        }))
+        })
+
+        return [TextResult(item) for item in result] if isinstance(result, list) else TextResult(result)
 
     def translate_document(self, document: Document, *,
                            source: str = None, source_hint: str = None, target: str,
                            adapt_to: List[str] = None, instructions: List[str] = None,
                            content_type: str = None, multiline: bool = True, timeout_ms: int = None) -> DocumentResult:
-        return DocumentResult.parse(self._client.post('/translate/document', {
+        return DocumentResult(self._client.post('/translate/document', {
             'source': source, 'target': target, 'source_hint': source_hint, 'content_type': content_type,
             'multiline': multiline, 'adapt_to': adapt_to, 'instructions': instructions, 'timeout': timeout_ms,
             'q': [{'text': section.text, 'translatable': section.translatable} for section in document]
