@@ -48,6 +48,45 @@ class MemoryImport(LaraObject):
         self.progress: float = data.get('progress')
 
 
+class TextResult(LaraObject):
+    @classmethod
+    def parse(cls, data: Optional[Union[List[Dict], Dict]]) -> Optional[Union['TextResult', List['TextResult']]]:
+        if data is None:
+            return None
+
+        return [cls(item) for item in data] if isinstance(data, list) else cls(data)
+
+    def __init__(self, data: Dict):
+        self.content_type: str = data.get('content_type')
+        self.source_language: str = data.get('source_language')
+        self.translation: str = data.get('translation')
+        self.adapted_to: Optional[List[str]] = data.get('adapted_to', None)
+
+
+class DocumentResult(LaraObject):
+    class Section(LaraObject):
+        def __init__(self, data: Dict):
+            self.text: str = data.get('text')
+            self.translatable: bool = data.get('translatable', True)
+
+    @classmethod
+    def parse(cls, data: Optional[Union[List[Dict], Dict]]) \
+            -> Optional[Union['DocumentResult', List['DocumentResult']]]:
+        if data is None:
+            return None
+
+        return [cls(item) for item in data] if isinstance(data, list) else cls(data)
+
+    def __init__(self, data: Dict):
+        self.content_type: str = data.get('content_type')
+        self.source_language: str = data.get('source_language')
+        self.translations: List[DocumentResult.Section] = [DocumentResult.Section(e) for e in data.get('translations')]
+        self.adapted_to: Optional[List[str]] = data.get('adapted_to', None)
+
+    def __iter__(self) -> Iterator['DocumentResult.Section']:
+        return iter(self.translations)
+
+
 class Document:
     class Section:
         def __init__(self, text: str, translatable: bool = True):
@@ -81,35 +120,6 @@ class Document:
 
     def __str__(self):
         return str(self._sections)
-
-
-class TextResult(LaraObject):
-    @classmethod
-    def parse(cls, data: Optional[Union[List[Dict], Dict]]) -> Optional[Union['TextResult', List['TextResult']]]:
-        if data is None:
-            return None
-
-        return [cls(item) for item in data] if isinstance(data, list) else cls(data)
-
-    def __init__(self, data: Dict):
-        self.content_type: str = data.get('content_type')
-        self.source_language: str = data.get('source_language')
-        self.translation: str = data.get('translation')
-        self.adapted_to: Optional[List[str]] = data.get('adapted_to', None)
-
-
-class DocumentResult(LaraObject):
-    def __init__(self, document: Document, data: Dict):
-        self.content_type: str = data.get('content_type')
-        self.source_language: str = data.get('source_language')
-        self.translations: List[Document.Section] = [
-            Document.Section(translation or section.text, section.translatable)
-            for section, translation in zip(document, data.get('translations'))
-        ]
-        self.adapted_to: Optional[List[str]] = data.get('adapted_to', None)
-
-    def __iter__(self) -> Iterator[Document.Section]:
-        return iter(self.translations)
 
 
 # Translator SDK -------------------------------------------------------------------------------------------------------
@@ -216,25 +226,22 @@ class LaraTranslator:
                   instructions: List[str] = None, content_type: str = None,
                   multiline: bool = True, timeout_ms: int = None) -> Union[TextResult, List[TextResult]]:
         if isinstance(text, str):
-            q = [text]
-        elif hasattr(text, '__iter__'):
             q = text
+        elif hasattr(text, '__iter__'):
+            q = list(text)
         else:
             raise ValueError('text must be a string or an iterable of strings')
 
-        results = TextResult.parse(self._client.post('/translate', {
+        return TextResult.parse(self._client.post('/translate', {
             'source': source, 'target': target, 'source_hint': source_hint, 'content_type': content_type,
-            'multiline': multiline, 'adapt_to': adapt_to, 'instructions': instructions, 'timeout': timeout_ms,
-            'q': [{'text': item} for item in q]
+            'multiline': multiline, 'adapt_to': adapt_to, 'instructions': instructions, 'timeout': timeout_ms, 'q': q
         }))
-
-        return results[0] if isinstance(text, str) else results
 
     def translate_document(self, document: Document, *,
                            source: str = None, source_hint: str = None, target: str,
                            adapt_to: List[str] = None, instructions: List[str] = None,
                            content_type: str = None, multiline: bool = True, timeout_ms: int = None) -> DocumentResult:
-        return DocumentResult(document, self._client.post('/translate/document', {
+        return DocumentResult.parse(self._client.post('/translate/document', {
             'source': source, 'target': target, 'source_hint': source_hint, 'content_type': content_type,
             'multiline': multiline, 'adapt_to': adapt_to, 'instructions': instructions, 'timeout': timeout_ms,
             'q': [{'text': section.text, 'translatable': section.translatable} for section in document]
