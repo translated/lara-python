@@ -182,11 +182,16 @@ class LaraMemories:
 
 
 class LaraTranslator:
-    def __init__(self, credentials: Credentials = None):
+    def __init__(self, credentials: Credentials = None, *,
+                 access_key_id: str = None, access_key_secret: str = None, server_url: str = None):
         if credentials is None:
-            credentials = Credentials.load()
+            if access_key_id is not None and access_key_secret is not None:
+                credentials = Credentials(access_key_id, access_key_secret)
+            else:
+                credentials = Credentials.load()
 
-        self._client: LaraClient = LaraClient(credentials.access_key_id, credentials.access_key_secret)
+        self._client: LaraClient = LaraClient(credentials.access_key_id, credentials.access_key_secret,
+                                              base_url=server_url)
         self.memories: LaraMemories = LaraMemories(self._client)
 
     def languages(self) -> List[str]:
