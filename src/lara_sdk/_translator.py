@@ -165,7 +165,7 @@ class LaraTranslator:
     def translate(self, text: Union[str, Iterable[str], Iterable[TextBlock]], *,
                   source: str = None, source_hint: str = None, target: str, adapt_to: List[str] = None,
                   instructions: List[str] = None, content_type: str = None,
-                  multiline: bool = True, timeout_ms: int = None) -> Union[TextResult, List[TextResult]]:
+                  multiline: bool = True, timeout_ms: int = None) -> TextResult:
         if isinstance(text, str):
             q = text
         elif hasattr(text, '__iter__'):
