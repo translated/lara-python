@@ -5,8 +5,9 @@ from typing import Optional, Union, List, Iterable, Callable
 
 from gzip_stream import GZIPCompressedStream
 
-from ._client import LaraObject, LaraClient, LaraError
+from ._client import LaraObject, LaraClient
 from ._credentials import Credentials
+from ._errors import LaraApiError
 
 
 # Objects --------------------------------------------------------------------------------------------------------------
@@ -62,7 +63,7 @@ class TextResult(LaraObject):
 # Translator SDK -------------------------------------------------------------------------------------------------------
 
 
-class LaraMemories:
+class Memories:
     def __init__(self, client: LaraClient):
         self._client: LaraClient = client
         self._polling_interval: int = 2
@@ -78,8 +79,8 @@ class LaraMemories:
     def get(self, id_: str) -> Optional[Memory]:
         try:
             return Memory(**self._client.get(f'/memories/{id_}'))
-        except LaraError as e:
-            if e.http_code == 404:
+        except LaraApiError as e:
+            if e.status_code == 404:
                 return None
             raise
 
@@ -152,17 +153,17 @@ class TranslatePriority(Enum):
     BACKGROUND = 'background'
 
 
-class LaraTranslator:
+class Translator:
     def __init__(self, credentials: Credentials = None, *,
                  access_key_id: str = None, access_key_secret: str = None, server_url: str = None):
         if credentials is None:
             if access_key_id is not None and access_key_secret is not None:
                 credentials = Credentials(access_key_id, access_key_secret)
             else:
-                credentials = Credentials.load()
+                raise ValueError('either credentials or access_key_id and access_key_secret must be provided')
 
         self._client: LaraClient = LaraClient(credentials.access_key_id, credentials.access_key_secret, server_url)
-        self.memories: LaraMemories = LaraMemories(self._client)
+        self.memories: Memories = Memories(self._client)
 
     def languages(self) -> List[str]:
         return self._client.get('/languages')

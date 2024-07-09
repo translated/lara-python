@@ -34,34 +34,6 @@ class _SignedSession(requests.Session):
         return base64.b64encode(signature).decode('UTF-8')
 
 
-class LaraError(Exception):
-    """
-    Represents an error returned by the Lara API.
-    An error consists of an HTTP status code (int), a name (string) and, optionally, a message (string).
-    """
-
-    @classmethod
-    def from_response(cls, response):
-        """
-        Creates a LaraError from a "request" response object.
-        :param response: The received response object.
-        :return: A LaraError object.
-        """
-        body = response.json()
-        error = body.get('error', {})
-        name = error.get('type', 'UnknownError')
-        message = error.get('message', 'An unknown error occurred')
-
-        return cls(response.status_code, name, message)
-
-    def __init__(self, http_code: int, name: str, message: str):
-        super().__init__(f'(HTTP {http_code}) {name}: {message}')
-
-        self.http_code: int = http_code
-        self.name: str = name
-        self.message: str = message
-
-
 class LaraObject:
     """
     This serves as a base class for all Lara API returned objects.
@@ -164,4 +136,4 @@ class LaraClient:
 
         if 200 <= response.status_code < 300:
             return response.json().get('content', None)
-        raise LaraError.from_response(response)
+        raise LaraApiError.from_response(response)
