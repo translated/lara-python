@@ -161,8 +161,7 @@ class LaraTranslator:
             else:
                 credentials = Credentials.load()
 
-        self._client: LaraClient = LaraClient(credentials.access_key_id, credentials.access_key_secret,
-                                              base_url=server_url)
+        self._client: LaraClient = LaraClient(credentials.access_key_id, credentials.access_key_secret, server_url)
         self.memories: LaraMemories = LaraMemories(self._client)
 
     def languages(self) -> List[str]:
