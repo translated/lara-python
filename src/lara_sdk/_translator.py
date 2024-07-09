@@ -1,5 +1,6 @@
 import time
 from datetime import datetime
+from enum import Enum
 from typing import Optional, Union, List, Iterable, Callable
 
 from gzip_stream import GZIPCompressedStream
@@ -146,6 +147,11 @@ class LaraMemories:
         return memory_import
 
 
+class TranslatePriority(Enum):
+    NORMAL = 'normal'
+    BACKGROUND = 'background'
+
+
 class LaraTranslator:
     def __init__(self, credentials: Credentials = None, *,
                  access_key_id: str = None, access_key_secret: str = None, server_url: str = None):
@@ -165,7 +171,7 @@ class LaraTranslator:
     def translate(self, text: Union[str, Iterable[str], Iterable[TextBlock]], *,
                   source: str = None, source_hint: str = None, target: str, adapt_to: List[str] = None,
                   instructions: List[str] = None, content_type: str = None,
-                  multiline: bool = True, timeout_ms: int = None) -> TextResult:
+                  multiline: bool = True, timeout_ms: int = None, priority: TranslatePriority = None) -> TextResult:
         if isinstance(text, str):
             q = text
         elif hasattr(text, '__iter__'):
@@ -180,5 +186,6 @@ class LaraTranslator:
 
         return TextResult(**self._client.post('/translate', {
             'source': source, 'target': target, 'source_hint': source_hint, 'content_type': content_type,
-            'multiline': multiline, 'adapt_to': adapt_to, 'instructions': instructions, 'timeout': timeout_ms, 'q': q
+            'multiline': multiline, 'adapt_to': adapt_to, 'instructions': instructions, 'timeout': timeout_ms, 'q': q,
+            'priority': priority.value if priority is not None else None
         }))
