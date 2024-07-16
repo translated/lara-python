@@ -153,6 +153,12 @@ class TranslatePriority(Enum):
     BACKGROUND = 'background'
 
 
+class UseCache(Enum):
+    YES = 'yes'
+    NO = 'no'
+    OVERWRITE = 'overwrite'
+
+
 class Translator:
     def __init__(self, credentials: Credentials = None, *,
                  access_key_id: str = None, access_key_secret: str = None, server_url: str = None):
@@ -171,7 +177,8 @@ class Translator:
     def translate(self, text: Union[str, Iterable[str], Iterable[TextBlock]], *,
                   source: str = None, source_hint: str = None, target: str, adapt_to: List[str] = None,
                   instructions: List[str] = None, content_type: str = None,
-                  multiline: bool = True, timeout_ms: int = None, priority: TranslatePriority = None) -> TextResult:
+                  multiline: bool = True, timeout_ms: int = None, priority: TranslatePriority = None,
+                  use_cache: UseCache = None, cache_ttl_s: int = None) -> TextResult:
         if isinstance(text, str):
             q = text
         elif hasattr(text, '__iter__'):
@@ -187,5 +194,6 @@ class Translator:
         return TextResult(**self._client.post('/translate', {
             'source': source, 'target': target, 'source_hint': source_hint, 'content_type': content_type,
             'multiline': multiline, 'adapt_to': adapt_to, 'instructions': instructions, 'timeout': timeout_ms, 'q': q,
-            'priority': priority.value if priority is not None else None
+            'priority': priority.value if priority is not None else None,
+            'use_cache': use_cache.value if use_cache is not None else None, 'cache_ttl': cache_ttl_s
         }))

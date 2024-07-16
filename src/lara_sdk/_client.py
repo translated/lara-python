@@ -7,6 +7,8 @@ from typing import Dict, Optional, Union, List
 
 import requests
 
+from ._errors import LaraApiError
+
 
 class _SignedSession(requests.Session):
     def __init__(self, access_key_id: str, access_key_secret: str):
