@@ -191,6 +191,11 @@ class Translator:
         else:
             raise ValueError('text must be a string or an iterable')
 
+        if use_cache is True:
+            use_cache = UseCache.YES
+        elif use_cache is False:
+            use_cache = UseCache.NO
+
         return TextResult(**self._client.post('/translate', {
             'source': source, 'target': target, 'source_hint': source_hint, 'content_type': content_type,
             'multiline': multiline, 'adapt_to': adapt_to, 'instructions': instructions, 'timeout': timeout_ms, 'q': q,
