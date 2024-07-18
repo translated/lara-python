@@ -178,7 +178,7 @@ class Translator:
                   source: str = None, source_hint: str = None, target: str, adapt_to: List[str] = None,
                   instructions: List[str] = None, content_type: str = None,
                   multiline: bool = True, timeout_ms: int = None, priority: TranslatePriority = None,
-                  use_cache: UseCache = None, cache_ttl_s: int = None) -> TextResult:
+                  use_cache: Union[bool, UseCache] = None, cache_ttl_s: int = None) -> TextResult:
         if isinstance(text, str):
             q = text
         elif hasattr(text, '__iter__'):
