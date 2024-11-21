@@ -4,13 +4,14 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - ci/publish-to-pypi
+      - main
 #  push:
 #    tags:
 #      - v*
 
 jobs:
   build:
+    name: Build Python package
     runs-on: ubuntu-latest
     environment: release
     steps:
