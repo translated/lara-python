@@ -12,6 +12,7 @@ on:
 jobs:
   publish-to-pypi:
     runs-on: ubuntu-latest
+    environment: release
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -29,5 +30,4 @@ jobs:
 
       - name: Publish to PyPI
         run: |
-          echo "Not implemented yet"
-          exit 1
+          python3 -m twine upload dist/*
