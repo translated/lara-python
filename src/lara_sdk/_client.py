@@ -70,7 +70,7 @@ class LaraClient:
     """
 
     def __init__(self, access_key_id: str, access_key_secret: str, server_url: str = None):
-        self.base_url: str = (server_url or 'https://api.hellolara.ai').strip().rstrip('/')
+        self.base_url: str = (server_url or 'https://api.laratranslate.com').strip().rstrip('/')
         self.session: _SignedSession = _SignedSession(access_key_id, access_key_secret)
         self.sdk_name: str = 'lara-python'
         self.sdk_version: str = __import__('lara_sdk').__version__
