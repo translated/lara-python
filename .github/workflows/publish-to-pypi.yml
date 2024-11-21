@@ -1,0 +1,33 @@
+name: Deploy on Production
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - ci/publish-to-pypi
+#  push:
+#    tags:
+#      - v*
+
+jobs:
+  publish-to-pypi:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          ref: main
+
+      - name: Install dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          pip3 install -r requirements.txt
+
+      - name: Build Python wheel
+        run: |
+          python3 -m build
+
+      - name: Publish to PyPI
+        run: |
+          echo "Not implemented yet"
+          exit 1
