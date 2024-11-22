@@ -1,4 +1,4 @@
-name: Deploy on Production
+name: Publish to PyPI
 
 on:
   workflow_dispatch:
