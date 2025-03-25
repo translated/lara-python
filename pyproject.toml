@@ -6,10 +6,10 @@ build-backend = "setuptools.build_meta"
 name = "lara-sdk"
 dynamic = ["version"]
 authors = [
-    { name = "Davide Caroselli", email = "davide.caroselli@translated.com" },
+    { name = "Translated", email = "support@laratranslate.com" },
 ]
 maintainers = [
-    { name = "Davide Caroselli", email = "davide.caroselli@translated.com" },
+    { name = "Translated", email = "support@laratranslate.com" },
 ]
 description = "A Python library for Lara's API."
 readme = "README.md"
@@ -25,5 +25,5 @@ dependencies = ["requests", "gzip-stream"]
 version = { attr = "lara_sdk.__version__" }
 
 [project.urls]
-Homepage = "https://github.com/translated/lara-python"
+Homepage = "https://laratranslate.com/"
 Issues = "https://github.com/translated/lara-python/issues"
