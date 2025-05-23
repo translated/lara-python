@@ -2,13 +2,14 @@ import time
 from datetime import datetime
 from enum import Enum
 from typing import Optional, Union, List, Iterable, Callable
+from dataclasses import dataclass
 
 from gzip_stream import GZIPCompressedStream
 
 from ._client import LaraObject, LaraClient
 from ._credentials import Credentials
 from ._errors import LaraApiError
-
+from ._s3client import S3Client, S3UploadFields
 
 # Objects --------------------------------------------------------------------------------------------------------------
 
@@ -34,6 +35,25 @@ class MemoryImport(LaraObject):
         self.channel: int = kwargs.get('channel')
         self.size: int = kwargs.get('size')
         self.progress: float = kwargs.get('progress')
+
+@dataclass
+class DocumentOptions:
+    adapt_to: Optional[List[str]] = None
+
+class Document(LaraObject):
+
+    def __init__(self, **kwargs):
+        self.id: str = kwargs.get('id')
+        self.status: DocumentStatus = DocumentStatus(kwargs.get('status'))
+        self.source: Optional[str] = kwargs.get('source')
+        self.target: str = kwargs.get('target')
+        self.filename: str = kwargs.get('filename')
+        self.created_at: datetime = self._parse_date(kwargs.get('created_at'))
+        self.updated_at: datetime = self._parse_date(kwargs.get('updated_at'))
+        self.options: Optional[DocumentOptions] = DocumentOptions(**kwargs.get('options')) if kwargs.get('options') else None
+        self.translated_chars: Optional[int] = int(kwargs.get('translated_chars')) if kwargs.get('translated_chars') else None
+        self.total_chars: Optional[int] = int(kwargs.get('total_chars')) if kwargs.get('total_chars') else None
+        self.error_reason: Optional[str] = kwargs.get('error_reason')
 
 
 class TextBlock(LaraObject):
@@ -148,6 +168,72 @@ class Memories:
         return memory_import
 
 
+
+class DocumentStatus(Enum):
+    INITIALIZED = 'initialized'     # just been created
+    ANALYZING = 'analyzing'         # being analyzed for language detection and chars count
+    PAUSED = 'paused'               # paused after analysis, needs user confirm
+    READY = 'ready'                 # ready to be translated
+    TRANSLATING = 'translating'
+    TRANSLATED = 'translated'
+    ERROR = 'error'
+
+class Documents:
+    def __init__(self, client: LaraClient):
+        self._client: LaraClient = client
+        self._s3client = S3Client()
+        self._polling_interval: int = 2
+
+    def upload(self, file_path: str, filename: str, target: str, source: Optional[str] = None, adapt_to: Optional[List[str]] = None) -> Document:
+        with open(file_path, 'rb') as file_payload:
+            response_data = self._client.get('/documents/upload-url', {'filename': filename})
+
+            url: str = response_data['url']
+            fields: S3UploadFields = S3UploadFields(**response_data['fields'])
+
+            self._s3client.upload(url, fields, file_payload)
+
+        body = {
+            's3key': fields['key'],
+            'target': target,
+        }
+        if source is not None:
+            body['source'] = source
+
+        if adapt_to is not None:
+            body['adapt_to'] = adapt_to
+
+        return Document(**self._client.post('/documents', body))
+    
+    def status(self, id: str) -> Document:
+        return Document(**self._client.get(f'/documents/{id}'))
+    
+    def download(self, id: str, output_format: Optional[str] = None) -> bytes:
+        params = {}
+        if output_format is not None:
+            params['output_format'] = output_format
+        url: str = self._client.get(f'/documents/{id}/download-url', params)['url']
+        return self._s3client.download(url=url)
+
+    def translate(self, file_path: str, filename: str, target: str, source: Optional[str] = None, 
+                  adapt_to: Optional[List[str]] = None, output_format: Optional[str] = None) -> Document:
+
+        document = self.upload(file_path=file_path, filename=filename, target=target, source=source, adapt_to=adapt_to)
+
+        max_wait_time = 60 * 15 # 15 minutes
+        start = time.time()
+
+        while time.time() - start < max_wait_time:
+            document = self.status(id=document.id)
+
+            if DocumentStatus(document.status) == DocumentStatus.TRANSLATED:
+                return self.download(id=document.id, output_format=output_format)
+            elif DocumentStatus(document.status) == DocumentStatus.ERROR:
+                raise LaraApiError(500, "DocumentError", document.error_reason)
+
+            time.sleep(self._polling_interval)
+        raise TimeoutError()
+
 class TranslatePriority(Enum):
     NORMAL = 'normal'
     BACKGROUND = 'background'
@@ -170,6 +256,7 @@ class Translator:
 
         self._client: LaraClient = LaraClient(credentials.access_key_id, credentials.access_key_secret, server_url)
         self.memories: Memories = Memories(self._client)
+        self.documents: Documents = Documents(self._client)
 
     def languages(self) -> List[str]:
         return self._client.get('/languages')
