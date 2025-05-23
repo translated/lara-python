@@ -216,7 +216,7 @@ class Documents:
         return self._s3client.download(url=url)
 
     def translate(self, file_path: str, filename: str, target: str, source: Optional[str] = None, 
-                  adapt_to: Optional[List[str]] = None, output_format: Optional[str] = None) -> Document:
+                  adapt_to: Optional[List[str]] = None, output_format: Optional[str] = None) -> bytes:
 
         document = self.upload(file_path=file_path, filename=filename, target=target, source=source, adapt_to=adapt_to)
 
