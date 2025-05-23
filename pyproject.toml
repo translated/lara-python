@@ -26,4 +26,3 @@ version = { attr = "lara_sdk.__version__" }
 
 [project.urls]
 Homepage = "https://laratranslate.com/"
-Issues = "https://github.com/translated/lara-python/issues"
