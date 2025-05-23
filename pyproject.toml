@@ -26,3 +26,4 @@ version = { attr = "lara_sdk.__version__" }
 
 [project.urls]
 Homepage = "https://laratranslate.com/"
+Source = "https://github.com/translated/lara-python"
