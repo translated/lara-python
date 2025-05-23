@@ -71,7 +71,7 @@ def update_version(part: str) -> str:
 def git_tag(version: str):
     cmd_exec(["git", "add", "."])
     cmd_exec(["git", "commit", "-m", f"v{version}"])
-    cmd_exec(["git", "tag", f"v{version}"])
+    cmd_exec(["git", "tag", "-a", f"v{version}", "-m", f"v{version}"])
 
 
 def main():
