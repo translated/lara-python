@@ -39,6 +39,7 @@ class MemoryImport(LaraObject):
 @dataclass
 class DocumentOptions:
     adapt_to: Optional[List[str]] = None
+    no_trace: Optional[bool] = None
 
 class Document(LaraObject):
 
@@ -184,7 +185,8 @@ class Documents:
         self._s3client = S3Client()
         self._polling_interval: int = 2
 
-    def upload(self, file_path: str, filename: str, target: str, source: Optional[str] = None, adapt_to: Optional[List[str]] = None) -> Document:
+    def upload(self, file_path: str, filename: str, target: str, source: Optional[str] = None,
+               adapt_to: Optional[List[str]] = None, no_trace: bool = False) -> Document:
         with open(file_path, 'rb') as file_payload:
             response_data = self._client.get('/documents/upload-url', {'filename': filename})
 
@@ -203,7 +205,11 @@ class Documents:
         if adapt_to is not None:
             body['adapt_to'] = adapt_to
 
-        return Document(**self._client.post('/documents', body))
+        headers = None
+        if no_trace is True:
+            headers = {'X-No-Trace': 'true'}
+
+        return Document(**self._client.post('/documents', body, headers=headers))
     
     def status(self, id: str) -> Document:
         return Document(**self._client.get(f'/documents/{id}'))
@@ -216,9 +222,11 @@ class Documents:
         return self._s3client.download(url=url)
 
     def translate(self, file_path: str, filename: str, target: str, source: Optional[str] = None, 
-                  adapt_to: Optional[List[str]] = None, output_format: Optional[str] = None) -> bytes:
+                  adapt_to: Optional[List[str]] = None, output_format: Optional[str] = None,
+                  no_trace: bool = False) -> bytes:
 
-        document = self.upload(file_path=file_path, filename=filename, target=target, source=source, adapt_to=adapt_to)
+        document = self.upload(file_path=file_path, filename=filename, target=target, source=source, adapt_to=adapt_to,
+                               no_trace=no_trace)
 
         max_wait_time = 60 * 15 # 15 minutes
         start = time.time()
@@ -265,7 +273,8 @@ class Translator:
                   source: str = None, source_hint: str = None, target: str, adapt_to: List[str] = None,
                   instructions: List[str] = None, content_type: str = None,
                   multiline: bool = True, timeout_ms: int = None, priority: TranslatePriority = None,
-                  use_cache: Union[bool, UseCache] = None, cache_ttl_s: int = None) -> TextResult:
+                  use_cache: Union[bool, UseCache] = None, cache_ttl_s: int = None,
+                  no_trace: bool = False) -> TextResult:
         if isinstance(text, str):
             q = text
         elif hasattr(text, '__iter__'):
@@ -283,9 +292,15 @@ class Translator:
         elif use_cache is False:
             use_cache = UseCache.NO
 
-        return TextResult(**self._client.post('/translate', {
+        body = {
             'source': source, 'target': target, 'source_hint': source_hint, 'content_type': content_type,
             'multiline': multiline, 'adapt_to': adapt_to, 'instructions': instructions, 'timeout': timeout_ms, 'q': q,
             'priority': priority.value if priority is not None else None,
             'use_cache': use_cache.value if use_cache is not None else None, 'cache_ttl': cache_ttl_s
-        }))
+        }
+
+        headers = None
+        if no_trace is True:
+            headers = {'X-No-Trace': 'true'}
+
+        return TextResult(**self._client.post('/translate', body, headers=headers))

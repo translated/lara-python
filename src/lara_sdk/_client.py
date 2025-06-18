@@ -75,66 +75,74 @@ class LaraClient:
         self.sdk_name: str = 'lara-python'
         self.sdk_version: str = __import__('lara_sdk').__version__
 
-    def get(self, path: str, params: Dict = None) -> Optional[Union[Dict, List]]:
+    def get(self, path: str, params: Dict = None, headers: Dict = None) -> Optional[Union[Dict, List]]:
         """
         Sends a GET request to the Lara API.
         :param path: The path to send the request to.
         :param params: The parameters to send with the request.
+        :param headers: Additional headers to include in the request.
         :return: The JSON response from the API.
         """
-        return self._request('GET', path, body=params)
+        return self._request('GET', path, body=params, headers=headers)
 
-    def delete(self, path: str, params: Dict = None) -> Optional[Union[Dict, List]]:
+    def delete(self, path: str, params: Dict = None, headers: Dict = None) -> Optional[Union[Dict, List]]:
         """
         Sends a DELETE request to the Lara API.
         :param path: The path to send the request to.
         :param params: The parameters to send with the request.
+        :param headers: Additional headers to include in the request.
         :return: The JSON response from the API.
         """
-        return self._request('DELETE', path, body=params)
+        return self._request('DELETE', path, body=params, headers=headers)
 
-    def post(self, path: str, body: Dict = None, files: Dict = None) -> Optional[Union[Dict, List]]:
+    def post(self, path: str, body: Dict = None, files: Dict = None, headers: Dict = None) -> Optional[Union[Dict, List]]:
         """
         Sends a POST request to the Lara API.
         :param path: The path to send the request to.
         :param body: The parameters to send with the request.
         :param files: The files to send with the request. If present, request will be sent as multipart/form-data.
+        :param headers: Additional headers to include in the request.
         :return: The JSON response from the API.
         """
-        return self._request('POST', path, body, files)
+        return self._request('POST', path, body, files, headers)
 
-    def put(self, path: str, body: Dict = None, files: Dict = None) -> Optional[Union[Dict, List]]:
+    def put(self, path: str, body: Dict = None, files: Dict = None, headers: Dict = None) -> Optional[Union[Dict, List]]:
         """
         Sends a PUT request to the Lara API.
         :param path: The path to send the request to.
         :param body: The parameters to send with the request.
         :param files: The files to send with the request. If present, request will be sent as multipart/form-data.
+        :param headers: Additional headers to include in the request.
         :return: The JSON response from the API.
         """
-        return self._request('PUT', path, body, files)
+        return self._request('PUT', path, body, files, headers)
 
-    def _request(self, method: str, path: str, body: Dict = None, files: Dict = None) -> Optional[Union[Dict, List]]:
+    def _request(self, method: str, path: str, body: Dict = None, files: Dict = None, headers: Dict = None) -> Optional[Union[Dict, List]]:
         if not path.startswith('/'):
             path = '/' + path
 
-        headers = {
+        _headers = {
             'X-HTTP-Method-Override': method,
             'Date': datetime.datetime.now(datetime.timezone.utc).strftime('%a, %d %b %Y %H:%M:%S +0000'),
             'X-Lara-SDK-Name': self.sdk_name,
             'X-Lara-SDK-Version': self.sdk_version
         }
 
+        # headers
+        if headers is not None:
+            _headers.update(headers)
+
         if body is not None:
             body = {k: v for k, v in body.items() if v is not None}
 
             if len(body) > 0:
                 encoded_body = json.dumps(body, ensure_ascii=False, separators=(',', ':')).encode('UTF-8')
-                headers['Content-MD5'] = hashlib.md5(encoded_body).hexdigest()
+                _headers['Content-MD5'] = hashlib.md5(encoded_body).hexdigest()
 
         if files is not None:
-            response = self.session.request('POST', f'{self.base_url}{path}', headers=headers, data=body, files=files)
+            response = self.session.request('POST', f'{self.base_url}{path}', headers=_headers, data=body, files=files)
         else:
-            response = self.session.request('POST', f'{self.base_url}{path}', headers=headers, json=body)
+            response = self.session.request('POST', f'{self.base_url}{path}', headers=_headers, json=body)
 
         if 200 <= response.status_code < 300:
             return response.json().get('content', None)
