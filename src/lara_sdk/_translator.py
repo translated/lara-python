@@ -274,7 +274,7 @@ class Translator:
                   instructions: List[str] = None, content_type: str = None,
                   multiline: bool = True, timeout_ms: int = None, priority: TranslatePriority = None,
                   use_cache: Union[bool, UseCache] = None, cache_ttl_s: int = None,
-                  no_trace: bool = False) -> TextResult:
+                  no_trace: bool = False, verbose: bool = False) -> TextResult:
         if isinstance(text, str):
             q = text
         elif hasattr(text, '__iter__'):
@@ -296,7 +296,8 @@ class Translator:
             'source': source, 'target': target, 'source_hint': source_hint, 'content_type': content_type,
             'multiline': multiline, 'adapt_to': adapt_to, 'instructions': instructions, 'timeout': timeout_ms, 'q': q,
             'priority': priority.value if priority is not None else None,
-            'use_cache': use_cache.value if use_cache is not None else None, 'cache_ttl': cache_ttl_s
+            'use_cache': use_cache.value if use_cache is not None else None, 'cache_ttl': cache_ttl_s,
+            'verbose': verbose
         }
 
         headers = None
