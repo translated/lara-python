@@ -1,7 +1,7 @@
 import time
 from datetime import datetime
 from enum import Enum
-from typing import Optional, Union, List, Iterable, Callable
+from typing import Optional, Union, List, Iterable, Callable, Literal
 from dataclasses import dataclass
 
 from gzip_stream import GZIPCompressedStream
@@ -36,9 +36,32 @@ class MemoryImport(LaraObject):
         self.size: int = kwargs.get('size')
         self.progress: float = kwargs.get('progress')
 
+class Glossary(LaraObject):
+    def __init__(self, **kwargs):
+        self.id: str = kwargs.get('id')
+        self.name: str = kwargs.get('name')
+        self.owner_id: str = kwargs.get('owner_id')
+        self.created_at: datetime = self._parse_date(kwargs.get('created_at', None))
+        self.updated_at: datetime = self._parse_date(kwargs.get('updated_at', None))
+
+class GlossaryImport(LaraObject):
+    def __init__(self, **kwargs):
+        self.id: str = kwargs.get('id')
+        self.begin: int = kwargs.get('begin')
+        self.end: int = kwargs.get('end')
+        self.channel: int = kwargs.get('channel')
+        self.size: int = kwargs.get('size')
+        self.progress: float = kwargs.get('progress')
+
+class GlossaryCounts(LaraObject):
+    def __init__(self, **kwargs):
+        self.unidirectional: Optional[dict[str, int]] = kwargs.get('unidirectional')
+        self.multidirectional: Optional[int] = kwargs.get('multidirectional')
+
 @dataclass
 class DocumentOptions:
     adapt_to: Optional[List[str]] = None
+    glossaries: Optional[List[str]] = None
     no_trace: Optional[bool] = None
 
 class Document(LaraObject):
@@ -168,6 +191,75 @@ class Memories:
 
         return memory_import
 
+class Glossaries:
+    def __init__(self, client: LaraClient):
+        self._client: LaraClient = client
+        self._polling_interval: int = 2
+
+    def list(self) -> List[Glossary]:
+        return [Glossary(**e) for e in self._client.get('/glossaries')]
+
+    def create(self, name: str) -> Glossary:
+        return Glossary(**self._client.post('/glossaries', {
+            'name': name
+        }))
+
+    def get(self, id_: str) -> Optional[Glossary]:
+        try:
+            return Glossary(**self._client.get(f'/glossaries/{id_}'))
+        except LaraApiError as e:
+            if e.status_code == 404:
+                return None
+            raise
+
+    def delete(self, id_: str) -> Glossary:
+        return Glossary(**self._client.delete(f'/glossaries/{id_}'))
+
+    def update(self, id_: str, name: str) -> Glossary:
+        return Glossary(**self._client.put(f'/glossaries/{id_}', {
+            'name': name
+        }))
+
+    def import_csv(self, id_: str, csv: str) -> GlossaryImport:
+        with open(csv, 'rb') as stream:
+            compressed_stream = GZIPCompressedStream(stream, compression_level=7)
+            return GlossaryImport(**self._client.post(f'/glossaries/{id_}/import',
+                                                    {'compression': 'gzip'}, {'csv': compressed_stream}))
+
+    def get_import_status(self, id_: str) -> GlossaryImport:
+        return GlossaryImport(**self._client.get(f'/glossaries/imports/{id_}'))
+
+    def wait_for_import(self, glossary_import: GlossaryImport, *,
+                        update_callback: Callable[[GlossaryImport], None] = None,
+                        max_wait_time: float = 0) -> GlossaryImport:
+        start = time.time()
+        while glossary_import.progress < 1.:
+            if 0 < max_wait_time < time.time() - start:
+                raise TimeoutError()
+
+            time.sleep(self._polling_interval)
+
+            glossary_import = self.get_import_status(glossary_import.id)
+            if update_callback is not None:
+                update_callback(glossary_import)
+
+        return glossary_import
+
+    def counts(self, id_: str) -> GlossaryCounts:
+        return GlossaryCounts(**self._client.get(f'/glossaries/{id_}/counts'))
+
+
+    def export(self, id_: str, content_type: Literal["csv/table-uni"], source: Optional[str]) -> bytes:
+        """
+        Exports a csv file with the glossary content. If the content_type is "csv/table-uni", the
+        file will contain a unidirectional glossary with only terms in the specified source language (required)
+        """
+        response = self._client.get(f'/glossaries/{id_}/export', {
+            'content_type': content_type,
+            'source': source
+        })
+        return response
+
 
 
 class DocumentStatus(Enum):
@@ -186,7 +278,7 @@ class Documents:
         self._polling_interval: int = 2
 
     def upload(self, file_path: str, filename: str, target: str, source: Optional[str] = None,
-               adapt_to: Optional[List[str]] = None, no_trace: bool = False) -> Document:
+               adapt_to: Optional[List[str]] = None, glossaries: Optional[List[str]] = None, no_trace: bool = False) -> Document:
         with open(file_path, 'rb') as file_payload:
             response_data = self._client.get('/documents/upload-url', {'filename': filename})
 
@@ -205,6 +297,9 @@ class Documents:
         if adapt_to is not None:
             body['adapt_to'] = adapt_to
 
+        if glossaries is not None:
+            body['glossaries'] = glossaries
+
         headers = None
         if no_trace is True:
             headers = {'X-No-Trace': 'true'}
@@ -222,11 +317,11 @@ class Documents:
         return self._s3client.download(url=url)
 
     def translate(self, file_path: str, filename: str, target: str, source: Optional[str] = None, 
-                  adapt_to: Optional[List[str]] = None, output_format: Optional[str] = None,
+                  adapt_to: Optional[List[str]] = None, glossaries: Optional[List[str]] = None, output_format: Optional[str] = None,
                   no_trace: bool = False) -> bytes:
 
         document = self.upload(file_path=file_path, filename=filename, target=target, source=source, adapt_to=adapt_to,
-                               no_trace=no_trace)
+                               glossaries=glossaries, no_trace=no_trace)
 
         max_wait_time = 60 * 15 # 15 minutes
         start = time.time()
@@ -265,13 +360,14 @@ class Translator:
         self._client: LaraClient = LaraClient(credentials.access_key_id, credentials.access_key_secret, server_url)
         self.memories: Memories = Memories(self._client)
         self.documents: Documents = Documents(self._client)
+        self.glossaries: Glossaries = Glossaries(self._client)
 
     def languages(self) -> List[str]:
         return self._client.get('/languages')
 
     def translate(self, text: Union[str, Iterable[str], Iterable[TextBlock]], *,
                   source: str = None, source_hint: str = None, target: str, adapt_to: List[str] = None,
-                  instructions: List[str] = None, content_type: str = None,
+                  glossaries: List[str] = None, instructions: List[str] = None, content_type: str = None,
                   multiline: bool = True, timeout_ms: int = None, priority: TranslatePriority = None,
                   use_cache: Union[bool, UseCache] = None, cache_ttl_s: int = None,
                   no_trace: bool = False, verbose: bool = False) -> TextResult:
@@ -297,7 +393,7 @@ class Translator:
             'multiline': multiline, 'adapt_to': adapt_to, 'instructions': instructions, 'timeout': timeout_ms, 'q': q,
             'priority': priority.value if priority is not None else None,
             'use_cache': use_cache.value if use_cache is not None else None, 'cache_ttl': cache_ttl_s,
-            'verbose': verbose
+            'glossaries': glossaries, 'verbose': verbose
         }
 
         headers = None

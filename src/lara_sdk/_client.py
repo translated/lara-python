@@ -75,7 +75,7 @@ class LaraClient:
         self.sdk_name: str = 'lara-python'
         self.sdk_version: str = __import__('lara_sdk').__version__
 
-    def get(self, path: str, params: Dict = None, headers: Dict = None) -> Optional[Union[Dict, List]]:
+    def get(self, path: str, params: Dict = None, headers: Dict = None) -> Optional[Union[Dict, List, bytes]]:
         """
         Sends a GET request to the Lara API.
         :param path: The path to send the request to.
@@ -85,7 +85,7 @@ class LaraClient:
         """
         return self._request('GET', path, body=params, headers=headers)
 
-    def delete(self, path: str, params: Dict = None, headers: Dict = None) -> Optional[Union[Dict, List]]:
+    def delete(self, path: str, params: Dict = None, headers: Dict = None) -> Optional[Union[Dict, List, bytes]]:
         """
         Sends a DELETE request to the Lara API.
         :param path: The path to send the request to.
@@ -95,7 +95,7 @@ class LaraClient:
         """
         return self._request('DELETE', path, body=params, headers=headers)
 
-    def post(self, path: str, body: Dict = None, files: Dict = None, headers: Dict = None) -> Optional[Union[Dict, List]]:
+    def post(self, path: str, body: Dict = None, files: Dict = None, headers: Dict = None) -> Optional[Union[Dict, List, bytes]]:
         """
         Sends a POST request to the Lara API.
         :param path: The path to send the request to.
@@ -106,7 +106,7 @@ class LaraClient:
         """
         return self._request('POST', path, body, files, headers)
 
-    def put(self, path: str, body: Dict = None, files: Dict = None, headers: Dict = None) -> Optional[Union[Dict, List]]:
+    def put(self, path: str, body: Dict = None, files: Dict = None, headers: Dict = None) -> Optional[Union[Dict, List, bytes]]:
         """
         Sends a PUT request to the Lara API.
         :param path: The path to send the request to.
@@ -117,7 +117,7 @@ class LaraClient:
         """
         return self._request('PUT', path, body, files, headers)
 
-    def _request(self, method: str, path: str, body: Dict = None, files: Dict = None, headers: Dict = None) -> Optional[Union[Dict, List]]:
+    def _request(self, method: str, path: str, body: Dict = None, files: Dict = None, headers: Dict = None) -> Optional[Union[Dict, List, bytes]]:
         if not path.startswith('/'):
             path = '/' + path
 
@@ -145,5 +145,7 @@ class LaraClient:
             response = self.session.request('POST', f'{self.base_url}{path}', headers=_headers, json=body)
 
         if 200 <= response.status_code < 300:
+            if "text/csv" in response.headers.get('Content-Type', ''):
+                return response.content
             return response.json().get('content', None)
         raise LaraApiError.from_response(response)
