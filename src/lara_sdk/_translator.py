@@ -85,6 +85,21 @@ class TextBlock(LaraObject):
         self.text: str = kwargs.get('text')
         self.translatable: bool = kwargs.get('translatable', True)
 
+class NGMemoryMatch(LaraObject):
+    def __init__(self, **kwargs):
+        self.memory: str = kwargs.get('memory')
+        self.tuid: Optional[str] = kwargs.get('tuid') if kwargs.get('tuid') else None
+        self.source: str = kwargs.get('source')
+        self.target: str = kwargs.get('target')
+        self.sentence: str = kwargs.get('sentence')
+        self.translation: float = kwargs.get('translation')
+
+class NGGlossaryMatch(LaraObject):
+    def __init__(self, **kwargs):
+        self.memory: str = kwargs.get('memory')
+        self.language: List[str] = kwargs.get('language')
+        self.term: str = kwargs.get('term')
+        self.translation: str = kwargs.get('translation')
 
 class TextResult(LaraObject):
     def __init__(self, **kwargs):
@@ -92,6 +107,8 @@ class TextResult(LaraObject):
         self.source_language: str = kwargs.get('source_language')
         self.translation: Union[str, List[str], List[TextBlock]]
         self.adapted_to: Optional[List[str]] = kwargs.get('adapted_to', None)
+        self.adapted_to_matches: Optional[Union[List[NGMemoryMatch], List[List[NGMemoryMatch]]]] = kwargs.get('adapted_to_matches', None)
+        self.glossaries_matches: Optional[Union[List[NGGlossaryMatch], List[List[NGGlossaryMatch]]]] = kwargs.get('glossaries_matches', None)
 
         translation = kwargs.get('translation')
 
