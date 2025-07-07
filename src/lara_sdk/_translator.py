@@ -89,14 +89,13 @@ class NGMemoryMatch(LaraObject):
     def __init__(self, **kwargs):
         self.memory: str = kwargs.get('memory')
         self.tuid: Optional[str] = kwargs.get('tuid') if kwargs.get('tuid') else None
-        self.source: str = kwargs.get('source')
-        self.target: str = kwargs.get('target')
+        self.language: List[str] = kwargs.get('language')
         self.sentence: str = kwargs.get('sentence')
         self.translation: float = kwargs.get('translation')
 
 class NGGlossaryMatch(LaraObject):
     def __init__(self, **kwargs):
-        self.memory: str = kwargs.get('memory')
+        self.glossary: str = kwargs.get('glossary')
         self.language: List[str] = kwargs.get('language')
         self.term: str = kwargs.get('term')
         self.translation: str = kwargs.get('translation')
