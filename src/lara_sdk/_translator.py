@@ -106,6 +106,7 @@ class TextResult(LaraObject):
         self.source_language: str = kwargs.get('source_language')
         self.translation: Union[str, List[str], List[TextBlock]]
         self.adapted_to: Optional[List[str]] = kwargs.get('adapted_to', None)
+        self.glossaries: Optional[List[str]] = kwargs.get('glossaries', None)
         self.adapted_to_matches: Optional[Union[List[NGMemoryMatch], List[List[NGMemoryMatch]]]] = kwargs.get('adapted_to_matches', None)
         self.glossaries_matches: Optional[Union[List[NGGlossaryMatch], List[List[NGGlossaryMatch]]]] = kwargs.get('glossaries_matches', None)
 
@@ -321,10 +322,10 @@ class Documents:
             headers = {'X-No-Trace': 'true'}
 
         return Document(**self._client.post('/documents', body, headers=headers))
-    
+
     def status(self, id: str) -> Document:
         return Document(**self._client.get(f'/documents/{id}'))
-    
+
     def download(self, id: str, output_format: Optional[str] = None) -> bytes:
         params = {}
         if output_format is not None:
@@ -332,7 +333,7 @@ class Documents:
         url: str = self._client.get(f'/documents/{id}/download-url', params)['url']
         return self._s3client.download(url=url)
 
-    def translate(self, file_path: str, filename: str, target: str, source: Optional[str] = None, 
+    def translate(self, file_path: str, filename: str, target: str, source: Optional[str] = None,
                   adapt_to: Optional[List[str]] = None, glossaries: Optional[List[str]] = None, output_format: Optional[str] = None,
                   no_trace: bool = False) -> bytes:
 
