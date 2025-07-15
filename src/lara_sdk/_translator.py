@@ -1,7 +1,7 @@
 import time
 from datetime import datetime
 from enum import Enum
-from typing import Optional, Union, List, Iterable, Callable, Literal
+from typing import Optional, Union, List, Iterable, Callable, Literal, Dict
 from dataclasses import dataclass
 
 from gzip_stream import GZIPCompressedStream
@@ -387,7 +387,8 @@ class Translator:
                   glossaries: List[str] = None, instructions: List[str] = None, content_type: str = None,
                   multiline: bool = True, timeout_ms: int = None, priority: TranslatePriority = None,
                   use_cache: Union[bool, UseCache] = None, cache_ttl_s: int = None,
-                  no_trace: bool = False, verbose: bool = False) -> TextResult:
+                  no_trace: bool = False, verbose: bool = False,
+                  headers: Optional[Dict[str, str]] = None) -> TextResult:
         if isinstance(text, str):
             q = text
         elif hasattr(text, '__iter__'):
@@ -413,8 +414,10 @@ class Translator:
             'glossaries': glossaries, 'verbose': verbose
         }
 
-        headers = None
+        request_headers = {}
+        if headers is not None:
+            request_headers.update(headers)
         if no_trace is True:
-            headers = {'X-No-Trace': 'true'}
+            request_headers['X-No-Trace'] = 'true'
 
-        return TextResult(**self._client.post('/translate', body, headers=headers))
+        return TextResult(**self._client.post('/translate', body, headers=request_headers))
