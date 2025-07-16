@@ -11,6 +11,8 @@ from ._credentials import Credentials
 from ._errors import LaraApiError
 from ._s3client import S3Client, S3UploadFields
 
+TranslationStyle = Literal["faithful", "fluid", "creative"]
+
 # Objects --------------------------------------------------------------------------------------------------------------
 
 
@@ -63,6 +65,7 @@ class DocumentOptions:
     adapt_to: Optional[List[str]] = None
     glossaries: Optional[List[str]] = None
     no_trace: Optional[bool] = None
+    style: Optional[TranslationStyle] = None
 
 class Document(LaraObject):
 
@@ -295,7 +298,8 @@ class Documents:
         self._polling_interval: int = 2
 
     def upload(self, file_path: str, filename: str, target: str, source: Optional[str] = None,
-               adapt_to: Optional[List[str]] = None, glossaries: Optional[List[str]] = None, no_trace: bool = False) -> Document:
+               adapt_to: Optional[List[str]] = None, glossaries: Optional[List[str]] = None, no_trace: bool = False,
+               style: Optional[TranslationStyle] = None) -> Document:
         with open(file_path, 'rb') as file_payload:
             response_data = self._client.get('/documents/upload-url', {'filename': filename})
 
@@ -317,6 +321,9 @@ class Documents:
         if glossaries is not None:
             body['glossaries'] = glossaries
 
+        if style is not None:
+            body['style'] = style
+
         headers = None
         if no_trace is True:
             headers = {'X-No-Trace': 'true'}
@@ -335,10 +342,10 @@ class Documents:
 
     def translate(self, file_path: str, filename: str, target: str, source: Optional[str] = None,
                   adapt_to: Optional[List[str]] = None, glossaries: Optional[List[str]] = None, output_format: Optional[str] = None,
-                  no_trace: bool = False) -> bytes:
+                  no_trace: bool = False, style: Optional[TranslationStyle] = None) -> bytes:
 
         document = self.upload(file_path=file_path, filename=filename, target=target, source=source, adapt_to=adapt_to,
-                               glossaries=glossaries, no_trace=no_trace)
+                               glossaries=glossaries, no_trace=no_trace, style=style)
 
         max_wait_time = 60 * 15 # 15 minutes
         start = time.time()
@@ -387,7 +394,7 @@ class Translator:
                   glossaries: List[str] = None, instructions: List[str] = None, content_type: str = None,
                   multiline: bool = True, timeout_ms: int = None, priority: TranslatePriority = None,
                   use_cache: Union[bool, UseCache] = None, cache_ttl_s: int = None,
-                  no_trace: bool = False, verbose: bool = False,
+                  no_trace: bool = False, verbose: bool = False, style: Optional[TranslationStyle] = None,
                   headers: Optional[Dict[str, str]] = None) -> TextResult:
         if isinstance(text, str):
             q = text
@@ -411,7 +418,7 @@ class Translator:
             'multiline': multiline, 'adapt_to': adapt_to, 'instructions': instructions, 'timeout': timeout_ms, 'q': q,
             'priority': priority.value if priority is not None else None,
             'use_cache': use_cache.value if use_cache is not None else None, 'cache_ttl': cache_ttl_s,
-            'glossaries': glossaries, 'verbose': verbose
+            'glossaries': glossaries, 'verbose': verbose, 'style': style
         }
 
         request_headers = {}
