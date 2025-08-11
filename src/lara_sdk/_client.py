@@ -123,7 +123,7 @@ class LaraClient:
 
         _headers = {
             'X-HTTP-Method-Override': method,
-            'Date': datetime.datetime.now(datetime.timezone.utc).strftime('%d %m %Y %H:%M:%S +0000'),
+            'Date': datetime.datetime.now(datetime.timezone.utc).isoformat(),
             'X-Lara-SDK-Name': self.sdk_name,
             'X-Lara-SDK-Version': self.sdk_version
         }
