@@ -172,14 +172,15 @@ class Memories:
                                                     {'compression': 'gzip'}, {'tmx': compressed_stream}))
 
     def add_translation(self, id_: Union[str, List[str]], source: str, target: str, sentence: str, translation: str,
-                        *, tuid: str = None, sentence_before: str = None, sentence_after: str = None) -> MemoryImport:
+                        *, tuid: str = None, sentence_before: str = None, sentence_after: str = None,
+                        headers: Optional[Dict[str, str]] = None) -> MemoryImport:
         body = {'source': source, 'target': target, 'sentence': sentence, 'translation': translation,
                 'tuid': tuid, 'sentence_before': sentence_before, 'sentence_after': sentence_after}
 
         if isinstance(id_, list):
             body['ids'] = id_
-            return MemoryImport(**self._client.put('/memories/content', body))
-        return MemoryImport(**self._client.put(f'/memories/{id_}/content', body))
+            return MemoryImport(**self._client.put('/memories/content', body, headers=headers))
+        return MemoryImport(**self._client.put(f'/memories/{id_}/content', body, headers=headers))
 
     def delete_translation(self, id_: Union[str, List[str]], source: str, target: str, sentence: str, translation: str,
                            *, tuid: str = None, sentence_before: str = None, sentence_after: str = None
