@@ -26,7 +26,6 @@ def main():
     lara = Translator(credentials)
     
     memory_id = None
-    external_memory_id = None
     memory_2_to_delete = None
     
     try:
@@ -147,12 +146,6 @@ def main():
             except Exception as e:
                 print(f"Error deleting memory: {e}")
         
-        if external_memory_id:
-            try:
-                deleted_external_memory = lara.memories.delete(external_memory_id)
-                print(f"🗑️  Deleted external memory: {deleted_external_memory.name}")
-            except Exception as e:
-                print(f"Error deleting external memory: {e}")
         
         if memory_2_to_delete:
             try:

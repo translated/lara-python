@@ -67,6 +67,23 @@ class DocumentOptions:
     no_trace: Optional[bool] = None
     style: Optional[TranslationStyle] = None
 
+# Extraction parameters for DOCX files
+@dataclass
+class DocxExtractionParams:
+    extract_comments: Optional[bool] = None
+    accept_revisions: Optional[bool] = None
+
+    def to_dict(self) -> Dict[str, Union[str, bool]]:
+        result = {}
+        if self.extract_comments is not None:
+            result['extract_comments'] = self.extract_comments
+        if self.accept_revisions is not None:
+            result['accept_revisions'] = self.accept_revisions
+        return result
+
+# Union type for all extraction parameter types
+DocumentExtractionParams = Union[DocxExtractionParams]
+
 class Document(LaraObject):
 
     def __init__(self, **kwargs):
@@ -300,7 +317,8 @@ class Documents:
 
     def upload(self, file_path: str, filename: str, target: str, source: Optional[str] = None,
                adapt_to: Optional[List[str]] = None, glossaries: Optional[List[str]] = None, no_trace: bool = False,
-               style: Optional[TranslationStyle] = None) -> Document:
+               style: Optional[TranslationStyle] = None, password: Optional[str] = None,
+               extraction_params: Optional[DocumentExtractionParams] = None) -> Document:
         with open(file_path, 'rb') as file_payload:
             response_data = self._client.get('/documents/upload-url', {'filename': filename})
 
@@ -322,8 +340,14 @@ class Documents:
         if glossaries is not None:
             body['glossaries'] = glossaries
 
+        if password is not None:
+            body['password'] = password
+
         if style is not None:
             body['style'] = style
+
+        if extraction_params is not None:
+            body['extraction_params'] = extraction_params.to_dict()
 
         headers = None
         if no_trace is True:
@@ -343,10 +367,11 @@ class Documents:
 
     def translate(self, file_path: str, filename: str, target: str, source: Optional[str] = None,
                   adapt_to: Optional[List[str]] = None, glossaries: Optional[List[str]] = None, output_format: Optional[str] = None,
-                  no_trace: bool = False, style: Optional[TranslationStyle] = None) -> bytes:
+                  no_trace: bool = False, style: Optional[TranslationStyle] = None, password: Optional[str] = None,
+                  extraction_params: Optional[DocumentExtractionParams] = None) -> bytes:
 
         document = self.upload(file_path=file_path, filename=filename, target=target, source=source, adapt_to=adapt_to,
-                               glossaries=glossaries, no_trace=no_trace, style=style)
+                               glossaries=glossaries, no_trace=no_trace, style=style, password=password, extraction_params=extraction_params)
 
         max_wait_time = 60 * 15 # 15 minutes
         start = time.time()
