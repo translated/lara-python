@@ -199,8 +199,10 @@ class Memories:
             return MemoryImport(**self._client.put('/memories/content', body, headers=headers))
         return MemoryImport(**self._client.put(f'/memories/{id_}/content', body, headers=headers))
 
-    def delete_translation(self, id_: Union[str, List[str]], source: str, target: str, sentence: str, translation: str,
-                           *, tuid: str = None, sentence_before: str = None, sentence_after: str = None
+    def delete_translation(self, id_: Union[str, List[str]], source: str, target: str,
+                           *, sentence: Optional[str] = None, translation: Optional[str] = None,
+                           tuid: Optional[str] = None, sentence_before: Optional[str] = None,
+                           sentence_after: Optional[str] = None
                            ) -> MemoryImport:
         body = {'source': source, 'target': target, 'sentence': sentence, 'translation': translation,
                 'tuid': tuid, 'sentence_before': sentence_before, 'sentence_after': sentence_after}
