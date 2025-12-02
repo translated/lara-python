@@ -141,6 +141,12 @@ class TextResult(LaraObject):
                 self.translation = [TextBlock(**e) for e in translation]
 
 
+class DetectResult(LaraObject):
+    def __init__(self, **kwargs):
+        self.language: str = kwargs.get('language')
+        self.content_type: str = kwargs.get('content_type')
+
+
 # Translator SDK -------------------------------------------------------------------------------------------------------
 
 
@@ -456,3 +462,13 @@ class Translator:
             request_headers['X-No-Trace'] = 'true'
 
         return TextResult(**self._client.post('/translate', body, headers=request_headers))
+
+    def detect(self, text: Union[str, List[str]], *, hint: Optional[str] = None,
+               passlist: Optional[List[str]] = None) -> DetectResult:
+        body = {
+            'q': text,
+            'hint': hint,
+            'passlist': passlist
+        }
+        
+        return DetectResult(**self._client.post('/detect', body))

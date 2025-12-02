@@ -114,6 +114,19 @@ cd examples
 python glossaries_management.py
 ```
 
+### Language Detection
+- **[language_detection.py](examples/language_detection.py)** - Language detection examples
+  - Single string detection
+  - Multiple strings detection
+  - Detection with hint parameter
+  - Detection with passlist to restrict languages
+  - Combined hint and passlist
+
+```bash
+cd examples
+python language_detection.py
+```
+
 ## 🔧 API Reference
 
 ### Core Components
@@ -293,6 +306,34 @@ csv_data = lara.glossaries.export("gls_1A2b3C4d5E6f7G8h9I0jKl", "csv/table-uni",
 
 # Get glossary terms count
 counts = lara.glossaries.counts("gls_1A2b3C4d5E6f7G8h9I0jKl")
+```
+
+### 🌐 Language Detection
+
+```python
+# Basic language detection
+result = lara.detect("Hello, world!")
+print(f"Detected language: {result.language}")
+print(f"Content type: {result.content_type}")
+
+# Detect multiple strings
+result = lara.detect(["Hello", "Bonjour", "Hola"])
+
+# Detection with hint
+result = lara.detect("Hello", hint="en")
+
+# Detection with passlist (restrict to specific languages)
+result = lara.detect(
+    "Guten Tag",
+    passlist=["de-DE", "en-US", "fr-FR"]
+)
+
+# Combined hint and passlist
+result = lara.detect(
+    "Buongiorno",
+    hint="it",
+    passlist=["it-IT", "es-ES", "pt-PT"]
+)
 ```
 
 ### Translation Options
