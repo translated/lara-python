@@ -429,7 +429,8 @@ class Translator:
                   multiline: bool = True, timeout_ms: int = None, priority: TranslatePriority = None,
                   use_cache: Union[bool, UseCache] = None, cache_ttl_s: int = None,
                   no_trace: bool = False, verbose: bool = False, style: Optional[TranslationStyle] = None,
-                  headers: Optional[Dict[str, str]] = None) -> TextResult:
+                  headers: Optional[Dict[str, str]] = None, reasoning: bool = False,
+                  callback: Optional[Callable[[TextResult], None]] = None) -> TextResult:
         if isinstance(text, str):
             q = text
         elif hasattr(text, '__iter__'):
@@ -452,7 +453,7 @@ class Translator:
             'multiline': multiline, 'adapt_to': adapt_to, 'instructions': instructions, 'timeout': timeout_ms, 'q': q,
             'priority': priority.value if priority is not None else None,
             'use_cache': use_cache.value if use_cache is not None else None, 'cache_ttl': cache_ttl_s,
-            'glossaries': glossaries, 'verbose': verbose, 'style': style
+            'glossaries': glossaries, 'verbose': verbose, 'style': style, 'reasoning': reasoning
         }
 
         request_headers = {}
@@ -461,7 +462,16 @@ class Translator:
         if no_trace is True:
             request_headers['X-No-Trace'] = 'true'
 
-        return TextResult(**self._client.post('/translate', body, headers=request_headers))
+        last_result = None
+        for partial in self._client.post_and_get_stream('/translate', body, headers=request_headers):
+            last_result = partial
+            if callback is not None and reasoning:
+                callback(TextResult(**partial))
+
+        if last_result is None:
+            raise ValueError('No translation result received.')
+
+        return TextResult(**last_result)
 
     def detect(self, text: Union[str, List[str]], *, hint: Optional[str] = None,
                passlist: Optional[List[str]] = None) -> DetectResult:

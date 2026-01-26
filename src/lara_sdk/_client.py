@@ -117,6 +117,17 @@ class LaraClient:
         """
         return self._request('PUT', path, body, files, headers)
 
+    def post_and_get_stream(self, path: str, body: Dict = None, files: Dict = None, headers: Dict = None):
+        """
+        Sends a POST request to the Lara API and yields streaming responses.
+        :param path: The path to send the request to.
+        :param body: The parameters to send with the request.
+        :param files: The files to send with the request. If present, request will be sent as multipart/form-data.
+        :param headers: Additional headers to include in the request.
+        :return: A generator yielding streaming responses.
+        """
+        return self._request_stream('POST', path, body, files, headers)
+
     def _request(self, method: str, path: str, body: Dict = None, files: Dict = None, headers: Dict = None) -> Optional[Union[Dict, List, bytes]]:
         if not path.startswith('/'):
             path = '/' + path
@@ -149,3 +160,51 @@ class LaraClient:
                 return response.content
             return response.json().get('content', None)
         raise LaraApiError.from_response(response)
+
+    def _request_stream(self, method: str, path: str, body: Dict = None, files: Dict = None, headers: Dict = None):
+        if not path.startswith('/'):
+            path = '/' + path
+
+        _headers = {
+            'X-HTTP-Method-Override': method,
+            'Date': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            'X-Lara-SDK-Name': self.sdk_name,
+            'X-Lara-SDK-Version': self.sdk_version
+        }
+
+        if headers is not None:
+            _headers.update(headers)
+
+        if body is not None:
+            body = {k: v for k, v in body.items() if v is not None}
+
+            if len(body) > 0:
+                encoded_body = json.dumps(body, ensure_ascii=False, separators=(',', ':')).encode('UTF-8')
+                _headers['Content-MD5'] = hashlib.md5(encoded_body).hexdigest()
+
+        if files is not None:
+            response = self.session.request('POST', f'{self.base_url}{path}', headers=_headers, data=body, files=files, stream=True)
+        else:
+            response = self.session.request('POST', f'{self.base_url}{path}', headers=_headers, json=body, stream=True)
+
+        buffer = ''
+        for chunk in response.iter_content(chunk_size=None, decode_unicode=True):
+            if chunk:
+                buffer += chunk
+                lines = buffer.split('\n')
+                buffer = lines.pop()
+
+                for line in lines:
+                    if line.strip():
+                        try:
+                            parsed = json.loads(line)
+                            yield parsed.get('data', parsed).get('content')
+                        except (json.JSONDecodeError, AttributeError):
+                            pass
+
+        if buffer.strip():
+            try:
+                parsed = json.loads(buffer)
+                yield parsed.get('data', parsed).get('content')
+            except (json.JSONDecodeError, AttributeError):
+                pass
