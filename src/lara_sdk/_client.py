@@ -155,11 +155,13 @@ class LaraClient:
         else:
             response = self.session.request('POST', f'{self.base_url}{path}', headers=_headers, json=body)
 
-        if 200 <= response.status_code < 300:
-            if "text/csv" in response.headers.get('Content-Type', ''):
-                return response.content
-            return response.json().get('content', None)
-        raise LaraApiError.from_response(response)
+        if not (200 <= response.status_code < 300):
+            raise LaraApiError.from_response(response)
+
+        if "text/csv" in response.headers.get('Content-Type', ''):
+            return response.content
+
+        return response.json().get('content', None)
 
     def _request_stream(self, method: str, path: str, body: Dict = None, files: Dict = None, headers: Dict = None):
         if not path.startswith('/'):
@@ -186,6 +188,9 @@ class LaraClient:
             response = self.session.request('POST', f'{self.base_url}{path}', headers=_headers, data=body, files=files, stream=True)
         else:
             response = self.session.request('POST', f'{self.base_url}{path}', headers=_headers, json=body, stream=True)
+
+        if not (200 <= response.status_code < 300):
+            raise LaraApiError.from_response(response)
 
         buffer = ''
         for chunk in response.iter_content(chunk_size=None, decode_unicode=True):
