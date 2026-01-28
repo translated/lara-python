@@ -141,10 +141,16 @@ class TextResult(LaraObject):
                 self.translation = [TextBlock(**e) for e in translation]
 
 
+class DetectPrediction(LaraObject):
+    def __init__(self, **kwargs):
+        self.language: str = kwargs.get('language')
+        self.confidence: float = kwargs.get('confidence')
+
 class DetectResult(LaraObject):
     def __init__(self, **kwargs):
         self.language: str = kwargs.get('language')
         self.content_type: str = kwargs.get('content_type')
+        self.predictions: List[DetectPrediction] = [DetectPrediction(**p) for p in kwargs.get('predictions', [])]
 
 
 # Translator SDK -------------------------------------------------------------------------------------------------------
@@ -480,5 +486,5 @@ class Translator:
             'hint': hint,
             'passlist': passlist
         }
-        
+
         return DetectResult(**self._client.post('/detect', body))
