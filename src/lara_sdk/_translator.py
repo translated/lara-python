@@ -127,11 +127,27 @@ class TextResult(LaraObject):
         self.translation: Union[str, List[str], List[TextBlock]]
         self.adapted_to: Optional[List[str]] = kwargs.get('adapted_to', None)
         self.glossaries: Optional[List[str]] = kwargs.get('glossaries', None)
-        self.adapted_to_matches: Optional[Union[List[NGMemoryMatch], List[List[NGMemoryMatch]]]] = kwargs.get('adapted_to_matches', None)
-        self.glossaries_matches: Optional[Union[List[NGGlossaryMatch], List[List[NGGlossaryMatch]]]] = kwargs.get('glossaries_matches', None)
+        self.adapted_to_matches: Optional[Union[List[NGMemoryMatch], List[List[NGMemoryMatch]]]] = None
+        self.glossaries_matches: Optional[Union[List[NGGlossaryMatch], List[List[NGGlossaryMatch]]]] = None
 
+        # Parse adapted_to_matches
+        adapted_to_matches = kwargs.get('adapted_to_matches', None)
+        if adapted_to_matches is not None:
+            if adapted_to_matches and isinstance(adapted_to_matches[0], list):
+                self.adapted_to_matches = [[NGMemoryMatch(**m) for m in matches] for matches in adapted_to_matches]
+            else:
+                self.adapted_to_matches = [NGMemoryMatch(**m) for m in adapted_to_matches]
+
+        # Parse glossaries_matches
+        glossaries_matches = kwargs.get('glossaries_matches', None)
+        if glossaries_matches is not None:
+            if glossaries_matches and isinstance(glossaries_matches[0], list):
+                self.glossaries_matches = [[NGGlossaryMatch(**m) for m in matches] for matches in glossaries_matches]
+            else:
+                self.glossaries_matches = [NGGlossaryMatch(**m) for m in glossaries_matches]
+
+        # Parse translation
         translation = kwargs.get('translation')
-
         if isinstance(translation, str):
             self.translation = translation
         elif isinstance(translation, list):
