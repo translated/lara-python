@@ -192,24 +192,10 @@ class LaraClient:
         if not (200 <= response.status_code < 300):
             raise LaraApiError.from_response(response)
 
-        buffer = ''
-        for chunk in response.iter_content(chunk_size=None, decode_unicode=True):
-            if chunk:
-                buffer += chunk
-                lines = buffer.split('\n')
-                buffer = lines.pop()
-
-                for line in lines:
-                    if line.strip():
-                        try:
-                            parsed = json.loads(line)
-                            yield parsed.get('data', parsed).get('content')
-                        except (json.JSONDecodeError, AttributeError):
-                            pass
-
-        if buffer.strip():
-            try:
-                parsed = json.loads(buffer)
-                yield parsed.get('data', parsed).get('content')
-            except (json.JSONDecodeError, AttributeError):
-                pass
+        for line in response.iter_lines(decode_unicode=True):
+            if line:
+                try:
+                    parsed = json.loads(line)
+                    yield parsed.get('data', parsed).get('content')
+                except (json.JSONDecodeError, AttributeError):
+                    pass
