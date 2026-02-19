@@ -127,22 +127,28 @@ class TextResult(LaraObject):
         self.translation: Union[str, List[str], List[TextBlock]]
         self.adapted_to: Optional[List[str]] = kwargs.get('adapted_to', None)
         self.glossaries: Optional[List[str]] = kwargs.get('glossaries', None)
-        self.adapted_to_matches: Optional[Union[List[NGMemoryMatch], List[List[NGMemoryMatch]]]] = None
-        self.glossaries_matches: Optional[Union[List[NGGlossaryMatch], List[List[NGGlossaryMatch]]]] = None
+        self.adapted_to_matches: Optional[Union[List[NGMemoryMatch], List[Optional[List[NGMemoryMatch]]]]] = None
+        self.glossaries_matches: Optional[Union[List[NGGlossaryMatch], List[Optional[List[NGGlossaryMatch]]]]] = None
 
         # Parse adapted_to_matches
         adapted_to_matches = kwargs.get('adapted_to_matches', None)
         if adapted_to_matches is not None:
-            if adapted_to_matches and isinstance(adapted_to_matches[0], list):
-                self.adapted_to_matches = [[NGMemoryMatch(**m) for m in matches] for matches in adapted_to_matches]
+            if any(isinstance(m, list) for m in adapted_to_matches):
+                self.adapted_to_matches = [
+                    [NGMemoryMatch(**m) for m in matches] if isinstance(matches, list) else None
+                    for matches in adapted_to_matches
+                ]
             else:
                 self.adapted_to_matches = [NGMemoryMatch(**m) for m in adapted_to_matches]
 
         # Parse glossaries_matches
         glossaries_matches = kwargs.get('glossaries_matches', None)
         if glossaries_matches is not None:
-            if glossaries_matches and isinstance(glossaries_matches[0], list):
-                self.glossaries_matches = [[NGGlossaryMatch(**m) for m in matches] for matches in glossaries_matches]
+            if any(isinstance(m, list) for m in glossaries_matches):
+                self.glossaries_matches = [
+                    [NGGlossaryMatch(**m) for m in matches] if isinstance(matches, list) else None
+                    for matches in glossaries_matches
+                ]
             else:
                 self.glossaries_matches = [NGGlossaryMatch(**m) for m in glossaries_matches]
 
