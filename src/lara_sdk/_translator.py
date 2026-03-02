@@ -3,15 +3,19 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional, Union, List, Iterable, Callable, Literal, Dict
 from dataclasses import dataclass
+import mimetypes
+from pathlib import Path
+import json
 
 from gzip_stream import GZIPCompressedStream
 
 from ._client import LaraObject, LaraClient
-from ._credentials import Credentials
+from ._credentials import Credentials, AccessKey, AuthToken
 from ._errors import LaraApiError
 from ._s3client import S3Client, S3UploadFields
 
 TranslationStyle = Literal["faithful", "fluid", "creative"]
+GlossaryFileFormat = Literal["csv/table-uni", "csv/table-multi"]
 
 # Objects --------------------------------------------------------------------------------------------------------------
 
@@ -57,8 +61,13 @@ class GlossaryImport(LaraObject):
 
 class GlossaryCounts(LaraObject):
     def __init__(self, **kwargs):
-        self.unidirectional: Optional[dict[str, int]] = kwargs.get('unidirectional')
+        self.unidirectional: Optional[Dict[str, int]] = kwargs.get('unidirectional')
         self.multidirectional: Optional[int] = kwargs.get('multidirectional')
+
+@dataclass
+class GlossaryTerm:
+    language: str
+    value: str
 
 @dataclass
 class DocumentOptions:
@@ -184,31 +193,31 @@ class Memories:
         self._polling_interval: int = 2
 
     def list(self) -> List[Memory]:
-        return [Memory(**e) for e in self._client.get('/memories')]
+        return [Memory(**e) for e in self._client.get('/v2/memories')]
 
     def create(self, name: str, external_id: str = None) -> Memory:
-        return Memory(**self._client.post('/memories', {
+        return Memory(**self._client.post('/v2/memories', {
             'name': name, 'external_id': external_id
         }))
 
     def get(self, id_: str) -> Optional[Memory]:
         try:
-            return Memory(**self._client.get(f'/memories/{id_}'))
+            return Memory(**self._client.get(f'/v2/memories/{id_}'))
         except LaraApiError as e:
             if e.status_code == 404:
                 return None
             raise
 
     def delete(self, id_: str) -> Memory:
-        return Memory(**self._client.delete(f'/memories/{id_}'))
+        return Memory(**self._client.delete(f'/v2/memories/{id_}'))
 
     def update(self, id_: str, name: str) -> Memory:
-        return Memory(**self._client.put(f'/memories/{id_}', {
+        return Memory(**self._client.put(f'/v2/memories/{id_}', {
             'name': name
         }))
 
     def connect(self, ids: Union[str, List[str]]) -> Union[Optional[Memory], List[Memory]]:
-        results = [Memory(**e) for e in self._client.post('/memories/connect', {
+        results = [Memory(**e) for e in self._client.post('/v2/memories/connect', {
             'ids': ids if isinstance(ids, list) else [ids]
         })]
 
@@ -219,7 +228,7 @@ class Memories:
     def import_tmx(self, id_: str, tmx: str) -> MemoryImport:
         with open(tmx, 'rb') as stream:
             compressed_stream = GZIPCompressedStream(stream, compression_level=7)
-            return MemoryImport(**self._client.post(f'/memories/{id_}/import',
+            return MemoryImport(**self._client.post(f'/v2/memories/{id_}/import',
                                                     {'compression': 'gzip'}, {'tmx': compressed_stream}))
 
     def add_translation(self, id_: Union[str, List[str]], source: str, target: str, sentence: str, translation: str,
@@ -230,8 +239,8 @@ class Memories:
 
         if isinstance(id_, list):
             body['ids'] = id_
-            return MemoryImport(**self._client.put('/memories/content', body, headers=headers))
-        return MemoryImport(**self._client.put(f'/memories/{id_}/content', body, headers=headers))
+            return MemoryImport(**self._client.put('/v2/memories/content', body, headers=headers))
+        return MemoryImport(**self._client.put(f'/v2/memories/{id_}/content', body, headers=headers))
 
     def delete_translation(self, id_: Union[str, List[str]], source: str, target: str,
                            *, sentence: Optional[str] = None, translation: Optional[str] = None,
@@ -243,11 +252,11 @@ class Memories:
 
         if isinstance(id_, list):
             body['ids'] = id_
-            return MemoryImport(**self._client.delete('/memories/content', body))
-        return MemoryImport(**self._client.delete(f'/memories/{id_}/content', body))
+            return MemoryImport(**self._client.delete('/v2/memories/content', body))
+        return MemoryImport(**self._client.delete(f'/v2/memories/{id_}/content', body))
 
     def get_import_status(self, id_: str) -> MemoryImport:
-        return MemoryImport(**self._client.get(f'/memories/imports/{id_}'))
+        return MemoryImport(**self._client.get(f'/v2/memories/imports/{id_}'))
 
     def wait_for_import(self, memory_import: MemoryImport, *,
                         update_callback: Callable[[MemoryImport], None] = None,
@@ -271,37 +280,38 @@ class Glossaries:
         self._polling_interval: int = 2
 
     def list(self) -> List[Glossary]:
-        return [Glossary(**e) for e in self._client.get('/glossaries')]
+        return [Glossary(**e) for e in self._client.get('/v2/glossaries')]
 
     def create(self, name: str) -> Glossary:
-        return Glossary(**self._client.post('/glossaries', {
+        return Glossary(**self._client.post('/v2/glossaries', {
             'name': name
         }))
 
     def get(self, id_: str) -> Optional[Glossary]:
         try:
-            return Glossary(**self._client.get(f'/glossaries/{id_}'))
+            return Glossary(**self._client.get(f'/v2/glossaries/{id_}'))
         except LaraApiError as e:
             if e.status_code == 404:
                 return None
             raise
 
     def delete(self, id_: str) -> Glossary:
-        return Glossary(**self._client.delete(f'/glossaries/{id_}'))
+        return Glossary(**self._client.delete(f'/v2/glossaries/{id_}'))
 
     def update(self, id_: str, name: str) -> Glossary:
-        return Glossary(**self._client.put(f'/glossaries/{id_}', {
+        return Glossary(**self._client.put(f'/v2/glossaries/{id_}', {
             'name': name
         }))
 
-    def import_csv(self, id_: str, csv: str) -> GlossaryImport:
+    def import_csv(self, id_: str, csv: str, content_type: GlossaryFileFormat = "csv/table-uni") -> GlossaryImport:
         with open(csv, 'rb') as stream:
             compressed_stream = GZIPCompressedStream(stream, compression_level=7)
-            return GlossaryImport(**self._client.post(f'/glossaries/{id_}/import',
-                                                    {'compression': 'gzip'}, {'csv': compressed_stream}))
+            return GlossaryImport(**self._client.post(f'/v2/glossaries/{id_}/import',
+                                                    {'compression': 'gzip', 'content_type': content_type},
+                                                    {'csv': compressed_stream}))
 
     def get_import_status(self, id_: str) -> GlossaryImport:
-        return GlossaryImport(**self._client.get(f'/glossaries/imports/{id_}'))
+        return GlossaryImport(**self._client.get(f'/v2/glossaries/imports/{id_}'))
 
     def wait_for_import(self, glossary_import: GlossaryImport, *,
                         update_callback: Callable[[GlossaryImport], None] = None,
@@ -320,19 +330,23 @@ class Glossaries:
         return glossary_import
 
     def counts(self, id_: str) -> GlossaryCounts:
-        return GlossaryCounts(**self._client.get(f'/glossaries/{id_}/counts'))
+        return GlossaryCounts(**self._client.get(f'/v2/glossaries/{id_}/counts'))
 
 
-    def export(self, id_: str, content_type: Literal["csv/table-uni"], source: Optional[str]) -> bytes:
-        """
-        Exports a csv file with the glossary content. If the content_type is "csv/table-uni", the
-        file will contain a unidirectional glossary with only terms in the specified source language (required)
-        """
-        response = self._client.get(f'/glossaries/{id_}/export', {
+    def export(self, id_: str, content_type: GlossaryFileFormat, source: Optional[str] = None) -> bytes:
+        response = self._client.get(f'/v2/glossaries/{id_}/export', {
             'content_type': content_type,
             'source': source
         })
         return response
+
+    def add_or_replace_entry(self, id_: str, terms: List[GlossaryTerm], *, guid: Optional[str] = None) -> GlossaryImport:
+        body = {'terms': [term.__dict__ for term in terms], 'guid': guid}
+        return GlossaryImport(**self._client.put(f'/v2/glossaries/{id_}/content', body))
+
+    def delete_entry(self, id_: str, *, term: Optional[GlossaryTerm] = None, guid: Optional[str] = None) -> GlossaryImport:
+        body = {'term': term.__dict__ if term else None, 'guid': guid}
+        return GlossaryImport(**self._client.delete(f'/v2/glossaries/{id_}/content', body))
 
 
 
@@ -345,6 +359,41 @@ class DocumentStatus(Enum):
     TRANSLATED = 'translated'
     ERROR = 'error'
 
+
+class AudioStatus(Enum):
+    INITIALIZED = 'initialized'
+    ANALYZING = 'analyzing'
+    PAUSED = 'paused'
+    READY = 'ready'
+    TRANSLATING = 'translating'
+    TRANSLATED = 'translated'
+    ERROR = 'error'
+
+
+@dataclass
+class AudioOptions:
+    adapt_to: Optional[List[str]] = None
+    glossaries: Optional[List[str]] = None
+    no_trace: Optional[bool] = None
+    style: Optional[TranslationStyle] = None
+
+
+class Audio(LaraObject):
+
+    def __init__(self, **kwargs):
+        self.id: str = kwargs.get('id')
+        self.status: AudioStatus = AudioStatus(kwargs.get('status'))
+        self.source: Optional[str] = kwargs.get('source')
+        self.target: str = kwargs.get('target')
+        self.filename: str = kwargs.get('filename')
+        self.created_at: datetime = self._parse_date(kwargs.get('created_at'))
+        self.updated_at: datetime = self._parse_date(kwargs.get('updated_at'))
+        self.options: Optional[AudioOptions] = AudioOptions(**kwargs.get('options')) if kwargs.get('options') else None
+        self.translated_seconds: Optional[int] = int(kwargs.get('translated_seconds')) if kwargs.get('translated_seconds') else None
+        self.total_seconds: Optional[int] = int(kwargs.get('total_seconds')) if kwargs.get('total_seconds') else None
+        self.error_reason: Optional[str] = kwargs.get('error_reason')
+
+
 class Documents:
     def __init__(self, client: LaraClient):
         self._client: LaraClient = client
@@ -356,7 +405,7 @@ class Documents:
                style: Optional[TranslationStyle] = None, password: Optional[str] = None,
                extraction_params: Optional[DocumentExtractionParams] = None) -> Document:
         with open(file_path, 'rb') as file_payload:
-            response_data = self._client.get('/documents/upload-url', {'filename': filename})
+            response_data = self._client.get('/v2/documents/upload-url', {'filename': filename})
 
             url: str = response_data['url']
             fields: S3UploadFields = S3UploadFields(**response_data['fields'])
@@ -389,16 +438,16 @@ class Documents:
         if no_trace is True:
             headers = {'X-No-Trace': 'true'}
 
-        return Document(**self._client.post('/documents', body, headers=headers))
+        return Document(**self._client.post('/v2/documents', body, headers=headers))
 
     def status(self, id: str) -> Document:
-        return Document(**self._client.get(f'/documents/{id}'))
+        return Document(**self._client.get(f'/v2/documents/{id}'))
 
     def download(self, id: str, output_format: Optional[str] = None) -> bytes:
         params = {}
         if output_format is not None:
             params['output_format'] = output_format
-        url: str = self._client.get(f'/documents/{id}/download-url', params)['url']
+        url: str = self._client.get(f'/v2/documents/{id}/download-url', params)['url']
         return self._s3client.download(url=url)
 
     def translate(self, file_path: str, filename: str, target: str, source: Optional[str] = None,
@@ -415,13 +464,162 @@ class Documents:
         while time.time() - start < max_wait_time:
             document = self.status(id=document.id)
 
-            if DocumentStatus(document.status) == DocumentStatus.TRANSLATED:
+            if document.status == DocumentStatus.TRANSLATED:
                 return self.download(id=document.id, output_format=output_format)
-            elif DocumentStatus(document.status) == DocumentStatus.ERROR:
+            elif document.status == DocumentStatus.ERROR:
                 raise LaraApiError(500, "DocumentError", document.error_reason)
 
             time.sleep(self._polling_interval)
         raise TimeoutError()
+
+class AudioTranslator:
+    def __init__(self, client: LaraClient):
+        self._client: LaraClient = client
+        self._s3client = S3Client()
+        self._polling_interval: int = 2
+
+    def upload(self, file_path: str, filename: str, target: str, source: Optional[str] = None,
+               adapt_to: Optional[List[str]] = None, glossaries: Optional[List[str]] = None,
+               no_trace: bool = False, style: Optional[TranslationStyle] = None) -> Audio:
+        with open(file_path, 'rb') as file_payload:
+            response_data = self._client.get('/v2/audio/upload-url', {'filename': filename})
+
+            url: str = response_data['url']
+            fields: S3UploadFields = S3UploadFields(**response_data['fields'])
+
+            self._s3client.upload(url, fields, file_payload)
+
+        body = {
+            's3key': fields['key'],
+            'target': target,
+        }
+        if source is not None:
+            body['source'] = source
+
+        if adapt_to is not None:
+            body['adapt_to'] = adapt_to
+
+        if glossaries is not None:
+            body['glossaries'] = glossaries
+
+        if style is not None:
+            body['style'] = style
+
+        headers = None
+        if no_trace is True:
+            headers = {'X-No-Trace': 'true'}
+
+        return Audio(**self._client.post('/v2/audio/translate', body, headers=headers))
+
+    def status(self, id: str) -> Audio:
+        return Audio(**self._client.get(f'/v2/audio/{id}'))
+
+    def download(self, id: str) -> bytes:
+        url: str = self._client.get(f'/v2/audio/{id}/download-url')['url']
+        return self._s3client.download(url=url)
+
+    def translate(self, file_path: str, filename: str, target: str, source: Optional[str] = None,
+                  adapt_to: Optional[List[str]] = None, glossaries: Optional[List[str]] = None,
+                  no_trace: bool = False, style: Optional[TranslationStyle] = None) -> bytes:
+
+        audio = self.upload(file_path=file_path, filename=filename, target=target, source=source,
+                            adapt_to=adapt_to, glossaries=glossaries, no_trace=no_trace, style=style)
+
+        max_wait_time = 60 * 15 # 15 minutes
+        start = time.time()
+
+        while time.time() - start < max_wait_time:
+            audio = self.status(id=audio.id)
+
+            if audio.status == AudioStatus.TRANSLATED:
+                return self.download(id=audio.id)
+            elif audio.status == AudioStatus.ERROR:
+                raise LaraApiError(500, "AudioError", audio.error_reason)
+
+            time.sleep(self._polling_interval)
+        raise TimeoutError()
+
+class ImageParagraph(LaraObject):
+    def __init__(self, **kwargs):
+        self.text: str = kwargs.get('text')
+        self.translation: str = kwargs.get('translation')
+        self.adapted_to_matches: Optional[List[NGMemoryMatch]] = [NGMemoryMatch(**m) for m in kwargs.get('adapted_to_matches', [])] if kwargs.get('adapted_to_matches') is not None else None
+        self.glossaries_matches: Optional[List[NGGlossaryMatch]] = [NGGlossaryMatch(**m) for m in kwargs.get('glossaries_matches', [])] if kwargs.get('glossaries_matches') is not None else None
+
+class ImageTextResult(LaraObject):
+    def __init__(self, **kwargs):
+        self.source_language: str = kwargs.get('source_language')
+        self.adapted_to: Optional[List[str]] = kwargs.get('adapted_to', None)
+        self.glossaries: Optional[List[str]] = kwargs.get('glossaries', None)
+        self.paragraphs: List[ImageParagraph] = [ImageParagraph(**p) for p in kwargs.get('paragraphs', [])]
+
+class ImageTranslator:
+    def __init__(self, client: LaraClient):
+        self._client: LaraClient = client
+
+    def translate(self, image_path: str, target: str, source: Optional[str] = None, *,
+                  adapt_to: Optional[List[str]] = None, glossaries: Optional[List[str]] = None,
+                  no_trace: bool = False, style: Optional[TranslationStyle] = None,
+                  text_removal: Optional[Literal["overlay", "inpainting"]] = None) -> bytes:
+        with open(image_path, 'rb') as file_payload:
+            mime_type, _ = mimetypes.guess_type(image_path)
+            if mime_type is None:
+                raise ValueError(f'Could not determine MIME type for file: {image_path}')
+            image_data = file_payload
+            filename = Path(image_path).name
+
+            data = {
+                'target': target,
+            }
+            if source is not None:
+                data['source'] = source
+            if adapt_to is not None:
+                data['adapt_to'] = json.dumps(adapt_to)
+            if glossaries is not None:
+                data['glossaries'] = json.dumps(glossaries)
+            if style is not None:
+                data['style'] = style
+            if text_removal is not None:
+                data['text_removal'] = text_removal
+
+            headers = {}
+            if no_trace is True:
+                headers['X-No-Trace'] = 'true'
+            files = {'image': (filename, image_data, mime_type)}
+
+            return self._client.post('/v2/images/translate', body=data, files=files, headers=headers)
+
+    def translate_text(self, image_path: str, target: str, source: Optional[str] = None, *,
+                  adapt_to: Optional[List[str]] = None, glossaries: Optional[List[str]] = None,
+                  no_trace: bool = False, style: Optional[TranslationStyle] = None, verbose: Optional[bool] = False) -> ImageTextResult:
+
+        with open(image_path, 'rb') as file_payload:
+            mime_type, _ = mimetypes.guess_type(image_path)
+            if mime_type is None:
+                raise ValueError(f'Could not determine MIME type for file: {image_path}')
+            image_data = file_payload
+            filename = Path(image_path).name
+
+            data = {
+                'target': target,
+            }
+            if source is not None:
+                data['source'] = source
+            if adapt_to is not None:
+                data['adapt_to'] = json.dumps(adapt_to)
+            if glossaries is not None:
+                data['glossaries'] = json.dumps(glossaries)
+            if style is not None:
+                data['style'] = style
+            if verbose:
+                data['verbose'] = json.dumps(verbose)
+
+            headers = {}
+            if no_trace is True:
+                headers['X-No-Trace'] = 'true'
+            files = {'image': (filename, image_data, mime_type)}
+            return ImageTextResult(**self._client.post('/v2/images/translate-text', body=data, files=files, headers=headers))
+
 
 class TranslatePriority(Enum):
     NORMAL = 'normal'
@@ -435,21 +633,39 @@ class UseCache(Enum):
 
 
 class Translator:
-    def __init__(self, credentials: Credentials = None, *,
+    def __init__(self, credentials: Union[AccessKey, AuthToken, Credentials] = None, *,
                  access_key_id: str = None, access_key_secret: str = None, server_url: str = None):
+        """
+        Initialize the Translator with authentication.
+
+        :param auth: Authentication object (AccessKey, AuthToken, or deprecated Credentials)
+        :param access_key_id: (Deprecated) Use AccessKey(id, secret) instead
+        :param access_key_secret: (Deprecated) Use AccessKey(id, secret) instead
+        :param server_url: Optional custom server URL
+        """
         if credentials is None:
             if access_key_id is not None and access_key_secret is not None:
-                credentials = Credentials(access_key_id, access_key_secret)
+                # Legacy support for old-style initialization
+                import warnings
+                warnings.warn(
+                    "Passing access_key_id and access_key_secret as keyword arguments is deprecated. "
+                    "Use AccessKey(id, secret) instead.",
+                    DeprecationWarning,
+                    stacklevel=2
+                )
+                credentials = AccessKey(access_key_id, access_key_secret)
             else:
-                raise ValueError('either credentials or access_key_id and access_key_secret must be provided')
+                raise ValueError('auth parameter is required (AccessKey, AuthToken, or Credentials)')
 
-        self._client: LaraClient = LaraClient(credentials.access_key_id, credentials.access_key_secret, server_url)
+        self._client: LaraClient = LaraClient(credentials, server_url)
         self.memories: Memories = Memories(self._client)
         self.documents: Documents = Documents(self._client)
         self.glossaries: Glossaries = Glossaries(self._client)
+        self.audio: AudioTranslator = AudioTranslator(self._client)
+        self.images: ImageTranslator = ImageTranslator(self._client)
 
     def languages(self) -> List[str]:
-        return self._client.get('/languages')
+        return self._client.get('/v2/languages')
 
     def translate(self, text: Union[str, Iterable[str], Iterable[TextBlock]], *,
                   source: str = None, source_hint: str = None, target: str, adapt_to: List[str] = None,
@@ -509,4 +725,4 @@ class Translator:
             'passlist': passlist
         }
 
-        return DetectResult(**self._client.post('/detect', body))
+        return DetectResult(**self._client.post('/v2/detect', body))

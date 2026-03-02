@@ -1,6 +1,7 @@
 from typing import IO, TypedDict
 import requests
 
+
 class S3UploadFields(TypedDict):
     acl: str
     bucket: str
@@ -18,7 +19,7 @@ class S3Client():
 
         try:
             response = self._session.post(url, data=data_fields, files=files_dict)
-            
+
             response.raise_for_status()
         except requests.RequestException as e:
             raise e

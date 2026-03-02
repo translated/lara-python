@@ -1,4 +1,4 @@
-from lara_sdk import Credentials, Translator
+from lara_sdk import AccessKey, Translator
 import os
 
 """
@@ -19,7 +19,7 @@ def main():
     access_key_id = os.getenv("LARA_ACCESS_KEY_ID", "your-access-key-id")
     access_key_secret = os.getenv("LARA_ACCESS_KEY_SECRET", "your-access-key-secret")
 
-    credentials = Credentials(access_key_id, access_key_secret)
+    credentials = AccessKey(access_key_id, access_key_secret)
     lara = Translator(credentials)
 
     # Replace with your actual document file path

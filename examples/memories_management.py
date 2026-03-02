@@ -1,4 +1,4 @@
-from lara_sdk import Credentials, Translator
+from lara_sdk import AccessKey, Translator
 import os
 
 """
@@ -22,7 +22,7 @@ def main():
     access_key_id = os.getenv("LARA_ACCESS_KEY_ID", "your-access-key-id")
     access_key_secret = os.getenv("LARA_ACCESS_KEY_SECRET", "your-access-key-secret")
 
-    credentials = Credentials(access_key_id, access_key_secret)
+    credentials = AccessKey(access_key_id, access_key_secret)
     lara = Translator(credentials)
     
     memory_id = None
@@ -124,9 +124,9 @@ def main():
             delete_job = lara.memories.delete_translation(
                 memory_id,
                 "en-US",
-                "fr-FR", 
-                "Hello",
-                "Bonjour",
+                "fr-FR",
+                sentence="Hello",
+                translation="Bonjour",
                 tuid="greeting_001"  # Specify the TUID to delete a specific translation unit
             )
             print(f"🗑️  Deleted translation unit (Job ID: {delete_job.id})")

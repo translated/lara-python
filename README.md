@@ -10,6 +10,8 @@ All major translation features are accessible, making it easy to integrate and c
 ## 🌍 **Features:**
 - **Text Translation**: Single strings, multiple strings, and complex text blocks
 - **Document Translation**: Word, PDF, and other document formats with status monitoring
+- **Image Translation**: Translate whole images or extract and translate text blocks
+- **Audio Translation**: Audio file translation with status monitoring
 - **Translation Memory**: Store and reuse translations for consistency
 - **Glossaries**: Enforce terminology standards across translations
 - **Language Detection**: Automatic source language identification
@@ -85,6 +87,28 @@ python text_translation.py
 ```bash
 cd examples
 python document_translation.py
+```
+
+### Image Translation
+- **[image_translation.py](examples/image_translation.py)** - Image translation examples
+  - Full image translation with overlay or inpainting
+  - Text-only extraction and translation
+  - Style, memories, and glossaries options
+
+```bash
+cd examples
+python image_translation.py
+```
+
+### Audio Translation
+- **[audio_translation.py](examples/audio_translation.py)** - Audio translation examples
+  - Basic audio translation
+  - Advanced options with memories and glossaries
+  - Step-by-step translation with status monitoring
+
+```bash
+cd examples
+python audio_translation.py
 ```
 
 ### Translation Memory Management
@@ -249,6 +273,68 @@ status = lara.documents.status(document.id)
 #### Download translated document
 ```python
 translated_content = lara.documents.download(document.id)
+```
+
+### 🖼️ Image Translation
+#### Simple image translation
+```python
+translated_image = lara.images.translate(
+  source="en-US",
+  target="fr-FR",
+  image_path="/path/to/your/image.png",  # Replace with actual file path
+  text_removal="overlay"
+)
+```
+
+#### Text-only image translation
+```python
+text_results = lara.images.translate_text(
+  source="en-US",
+  target="es-ES",
+  image_path="/path/to/your/image.png"  # Replace with actual file path
+)
+```
+
+### 🎵 Audio Translation
+#### Simple audio translation
+```python
+audio_content = lara.audio.translate(
+    file_path="/path/to/your/audio.mp3",  # Replace with actual file path
+    filename="audio.mp3",
+    source="en-US",
+    target="fr-FR"
+)
+
+# With options
+audio_content = lara.audio.translate(
+    file_path="/path/to/your/audio.mp3",  # Replace with actual file path
+    filename="audio.mp3",
+    source="en-US",
+    target="fr-FR",
+    adapt_to=["mem_1A2b3C4d5E6f7G8h9I0jKl"],  # Replace with actual memory IDs
+    glossaries=["gls_1A2b3C4d5E6f7G8h9I0jKl"]  # Replace with actual glossary IDs
+)
+```
+### Audio translation with status monitoring
+#### Audio upload
+```python
+# Optional: upload options
+audio = lara.audio.upload(
+    file_path="/path/to/your/audio.mp3",  # Replace with actual file path
+    filename="audio.mp3",
+    source="en-US",
+    target="fr-FR",
+    adapt_to=["mem_1A2b3C4d5E6f7G8h9I0jKl"],  # Replace with actual memory IDs
+    glossaries=["gls_1A2b3C4d5E6f7G8h9I0jKl"]  # Replace with actual glossary IDs
+)
+```
+#### Audio translation status monitoring
+```python
+status = lara.audio.status(audio.id)
+```
+#### Download translated audio
+```python
+audio_content = lara.audio.download(audio.id)
 ```
 
 ### 🧠 Memory Management

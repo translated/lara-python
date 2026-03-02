@@ -1,4 +1,4 @@
-from lara_sdk import Credentials, Translator
+from lara_sdk import AccessKey, Translator, GlossaryTerm
 import os
 
 """
@@ -10,6 +10,7 @@ This example demonstrates:
 - Glossary export
 - Glossary terms count
 - Import status checking
+- Add/replace and delete glossary term entries
 """
 
 def main():
@@ -21,7 +22,7 @@ def main():
     access_key_id = os.getenv("LARA_ACCESS_KEY_ID", "your-access-key-id")
     access_key_secret = os.getenv("LARA_ACCESS_KEY_SECRET", "your-access-key-secret")
 
-    credentials = Credentials(access_key_id, access_key_secret)
+    credentials = AccessKey(access_key_id, access_key_secret)
     lara = Translator(credentials)
     
     print("🗒️  Glossaries require a specific subscription plan.")
@@ -125,6 +126,45 @@ def main():
             print(f"   Total entries: {total_entries}")
         except Exception as e:
             print(f"Error getting glossary terms count: {e}\n")
+
+        # Example 6: Add/Replace and Delete glossary term entries
+        print("=== Glossary Term Entries ===")
+        try:
+            # Add a new entry with multiple language terms
+            terms = [
+                GlossaryTerm(language="en-US", value="computer"),
+                GlossaryTerm(language="it-IT", value="computer")
+            ]
+            add_result = lara.glossaries.add_or_replace_entry(glossary_id, terms)
+            print(f"Added entry, import ID: {add_result.id}")
+
+            # Add another entry with a custom GUID
+            terms_with_guid = [
+                GlossaryTerm(language="en-US", value="keyboard"),
+                GlossaryTerm(language="it-IT", value="tastiera")
+            ]
+            lara.glossaries.add_or_replace_entry(glossary_id, terms_with_guid, guid="custom-guid-123")
+            print("Added entry with custom GUID")
+
+            # Replace an existing entry by using the same GUID
+            updated_terms = [
+                GlossaryTerm(language="en-US", value="keyboard"),
+                GlossaryTerm(language="it-IT", value="tastiera"),
+                GlossaryTerm(language="fr-FR", value="clavier")
+            ]
+            lara.glossaries.add_or_replace_entry(glossary_id, updated_terms, guid="custom-guid-123")
+            print("Replaced entry using existing GUID")
+
+            # Delete an entry by GUID
+            lara.glossaries.delete_entry(glossary_id, guid="custom-guid-123")
+            print("Deleted entry by GUID")
+
+            # Delete an entry by term
+            lara.glossaries.delete_entry(glossary_id, term=GlossaryTerm(language="en-US", value="computer"))
+            print("Deleted entry by term")
+            print()
+        except Exception as e:
+            print(f"Error with term entries: {e}\n")
 
     except Exception as e:
         print(f"Error creating glossary: {e}\n")

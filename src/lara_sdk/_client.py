@@ -7,33 +7,8 @@ from typing import Dict, Optional, Union, List
 
 import requests
 
+from ._credentials import AccessKey, AuthToken
 from ._errors import LaraApiError
-
-
-class _SignedSession(requests.Session):
-    def __init__(self, access_key_id: str, access_key_secret: str):
-        super().__init__()
-        self.access_key_id = access_key_id
-        self.access_key_secret = access_key_secret
-
-    def prepare_request(self, request: requests.Request) -> requests.PreparedRequest:
-        result = super().prepare_request(request)
-        if self.access_key_id is not None and self.access_key_secret is not None:
-            result.headers['Authorization'] = f'Lara {self.access_key_id}:{self._sign(result)}'
-        return result
-
-    def _sign(self, request: requests.PreparedRequest) -> str:
-        date = request.headers.get('Date').strip()
-        content_md5 = request.headers.get('Content-MD5', '').strip()
-        content_type = request.headers.get('Content-Type', '').split(';', 1)[0].strip()
-        method = request.headers.get('X-HTTP-Method-Override', request.method).strip().upper()
-        path = request.path_url
-
-        raw = f'{method}\n{path}\n{content_md5}\n{content_type}\n{date}'.encode('UTF-8')
-        secret = self.access_key_secret.encode('UTF-8')
-
-        signature = hmac.new(secret, raw, hashlib.sha256).digest()
-        return base64.b64encode(signature).decode('UTF-8')
 
 
 class LaraObject:
@@ -64,16 +39,34 @@ class LaraObject:
         return result[:-2] + ")"
 
 
+
 class LaraClient:
     """
-    This class is used to interact with Lara via the REST API.
+    This class is used to interact with Lara via the REST API with JWT authentication support.
     """
 
-    def __init__(self, access_key_id: str, access_key_secret: str, server_url: str = None):
+    def __init__(self, auth: Union[AccessKey, AuthToken], server_url: str = None):
+        """
+        Initialize the Lara client with authentication.
+
+        :param auth: Authentication method (AccessKey or AuthToken)
+        :param server_url: Optional custom server URL (defaults to https://api.laratranslate.com)
+        """
         self.base_url: str = (server_url or 'https://api.laratranslate.com').strip().rstrip('/')
-        self.session: _SignedSession = _SignedSession(access_key_id, access_key_secret)
         self.sdk_name: str = 'lara-python'
         self.sdk_version: str = __import__('lara_sdk').__version__
+
+        # Authentication state
+        self._auth: Union[AccessKey, AuthToken] = auth
+        self._token: Optional[str] = None
+        self._refresh_token: Optional[str] = None
+
+        # If AuthToken is provided, use it immediately
+        if isinstance(auth, AuthToken):
+            self._token = auth.token
+            self._refresh_token = auth.refresh_token
+
+        self.session: requests.Session = requests.Session()
 
     def get(self, path: str, params: Dict = None, headers: Dict = None) -> Optional[Union[Dict, List, bytes]]:
         """
@@ -128,50 +121,77 @@ class LaraClient:
         """
         return self._request_stream('POST', path, body, files, headers)
 
-    def _request(self, method: str, path: str, body: Dict = None, files: Dict = None, headers: Dict = None) -> Optional[Union[Dict, List, bytes]]:
+    def _request(self, method: str, path: str, body: Dict = None, files: Dict = None, headers: Dict = None,
+                 retry_count: int = 0) -> Optional[Union[Dict, List, bytes]]:
+        """
+        Execute an authenticated HTTP request with automatic token management.
+        """
+        # Ensure we have a valid token
+        if self._token is None:
+            self._authenticate()
+
         if not path.startswith('/'):
             path = '/' + path
 
         _headers = {
-            'X-HTTP-Method-Override': method,
             'Date': datetime.datetime.now(datetime.timezone.utc).isoformat(),
             'X-Lara-SDK-Name': self.sdk_name,
-            'X-Lara-SDK-Version': self.sdk_version
+            'X-Lara-SDK-Version': self.sdk_version,
+            'Authorization': f'Bearer {self._token}'
         }
 
-        # headers
+        # Add custom headers
         if headers is not None:
             _headers.update(headers)
 
         if body is not None:
             body = {k: v for k, v in body.items() if v is not None}
 
-            if len(body) > 0:
-                encoded_body = json.dumps(body, ensure_ascii=False, separators=(',', ':')).encode('UTF-8')
-                _headers['Content-MD5'] = hashlib.md5(encoded_body).hexdigest()
-
         if files is not None:
-            response = self.session.request('POST', f'{self.base_url}{path}', headers=_headers, data=body, files=files)
+            response = self.session.request(method, f'{self.base_url}{path}', headers=_headers, data=body, files=files)
+        elif method == 'GET':
+            response = self.session.request(method, f'{self.base_url}{path}', headers=_headers, params=body)
         else:
-            response = self.session.request('POST', f'{self.base_url}{path}', headers=_headers, json=body)
+            response = self.session.request(method, f'{self.base_url}{path}', headers=_headers, json=body)
 
-        if not (200 <= response.status_code < 300):
-            raise LaraApiError.from_response(response)
+        # Handle successful responses
+        if 200 <= response.status_code < 300:
+            if response.status_code == 204:
+                return None
+            if "text/csv" in response.headers.get('Content-Type', '') or "image/" in response.headers.get('Content-Type', ''):
+                return response.content
+            try:
+                data = response.json()
 
-        if "text/csv" in response.headers.get('Content-Type', ''):
-            return response.content
+                # Backward compatibility
+                if isinstance(data, dict) and 'content' in data:
+                    return data['content']
 
-        return response.json().get('content', None)
+                return data
+            except:
+                return None
 
-    def _request_stream(self, method: str, path: str, body: Dict = None, files: Dict = None, headers: Dict = None):
+        # Handle 401 - token expired, refresh and retry once
+        if response.status_code == 401 and retry_count < 1:
+            self._token = None
+            return self._request(method, path, body, files, headers, retry_count=retry_count + 1)
+
+        raise LaraApiError.from_response(response)
+
+    def _request_stream(self, method: str, path: str, body: Dict = None, files: Dict = None, headers: Dict = None,
+                        retry_count: int = 0):
+        # Ensure we have a valid token
+        if self._token is None:
+            self._authenticate()
+
         if not path.startswith('/'):
             path = '/' + path
 
         _headers = {
-            'X-HTTP-Method-Override': method,
             'Date': datetime.datetime.now(datetime.timezone.utc).isoformat(),
             'X-Lara-SDK-Name': self.sdk_name,
-            'X-Lara-SDK-Version': self.sdk_version
+            'X-Lara-SDK-Version': self.sdk_version,
+            'Authorization': f'Bearer {self._token}'
         }
 
         if headers is not None:
@@ -180,22 +200,134 @@ class LaraClient:
         if body is not None:
             body = {k: v for k, v in body.items() if v is not None}
 
-            if len(body) > 0:
-                encoded_body = json.dumps(body, ensure_ascii=False, separators=(',', ':')).encode('UTF-8')
-                _headers['Content-MD5'] = hashlib.md5(encoded_body).hexdigest()
-
         if files is not None:
-            response = self.session.request('POST', f'{self.base_url}{path}', headers=_headers, data=body, files=files, stream=True)
+            response = self.session.request(method, f'{self.base_url}{path}', headers=_headers, data=body, files=files, stream=True)
         else:
-            response = self.session.request('POST', f'{self.base_url}{path}', headers=_headers, json=body, stream=True)
+            response = self.session.request(method, f'{self.base_url}{path}', headers=_headers, json=body, stream=True)
 
         if not (200 <= response.status_code < 300):
+            # Handle 401 - token expired, refresh and retry once
+            if response.status_code == 401 and retry_count < 1:
+                self._token = None
+                yield from self._request_stream(method, path, body, files, headers, retry_count=retry_count + 1)
+                return
+
             raise LaraApiError.from_response(response)
 
         for line in response.iter_lines(decode_unicode=True):
             if line:
                 try:
                     parsed = json.loads(line)
-                    yield parsed.get('data', parsed).get('content')
+                    data = parsed.get('data', parsed)
+                    if isinstance(data, dict) and 'content' in data:  # backward compatibility
+                        yield data['content']
+                    else:
+                        yield data
                 except (json.JSONDecodeError, AttributeError):
                     pass
+
+    def _authenticate(self) -> str:
+        """
+        Authenticate using AccessKey or AuthToken to obtain JWT tokens.
+
+        This method is protected to enable internal token extraction for company use.
+        External SDK users should not call this method directly.
+
+        :return: The JWT access token string
+        """
+        # If we already have a token, return it
+        if self._token is not None:
+            return self._token
+
+        if self._refresh_token is not None:
+            # Try to refresh first
+            self._refresh()
+        elif isinstance(self._auth, AuthToken):
+            self._token = self._auth.token
+            self._refresh_token = self._auth.refresh_token
+        elif isinstance(self._auth, AccessKey):
+            self._authenticate_with_access_key()
+        else:
+            raise ValueError(f'Invalid authentication type: {type(self._auth).__name__}')
+
+        return self._token
+
+    def _authenticate_with_access_key(self) -> None:
+        """Authenticate using AccessKey with challenge-response."""
+        path = '/v2/auth'
+        method = 'POST'
+        date = datetime.datetime.now(datetime.timezone.utc).strftime('%a, %d %b %Y %H:%M:%S GMT')
+        content_type = 'application/json'
+
+        body = {'id': self._auth.id}
+        body_string = json.dumps(body, ensure_ascii=False, separators=(',', ':'))
+        body_bytes = body_string.encode('UTF-8')
+
+        content_md5 = base64.b64encode(hashlib.md5(body_bytes).digest()).decode('UTF-8')
+        challenge = self._compute_signature(
+            self._auth.secret,
+            method,
+            path,
+            content_md5,
+            content_type,
+            date
+        )
+
+        headers = {
+            'Authorization': f'Lara:{challenge}',
+            'X-Lara-Date': date,
+            'Content-Type': content_type,
+            'Content-MD5': content_md5,
+            'X-Lara-SDK-Name': self.sdk_name,
+            'X-Lara-SDK-Version': self.sdk_version
+        }
+
+        response = self.session.post(f'{self.base_url}{path}', headers=headers, data=body_string)
+
+        if 200 <= response.status_code < 300:
+            data = response.json()
+            self._token = data.get('token')
+            self._refresh_token = response.headers.get('x-lara-refresh-token')
+
+            if not self._token or not self._refresh_token:
+                raise LaraApiError(500, "AuthenticationError", "Missing token or refresh token in authentication response")
+        else:
+            raise LaraApiError.from_response(response)
+
+    def _refresh(self) -> None:
+        """Refresh JWT token using the refresh token."""
+        path = '/v2/auth/refresh'
+
+        headers = {
+            'Authorization': f'Bearer {self._refresh_token}',
+            'X-Lara-Date': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            'X-Lara-SDK-Name': self.sdk_name,
+            'X-Lara-SDK-Version': self.sdk_version
+        }
+
+        response = self.session.post(f'{self.base_url}{path}', headers=headers)
+
+        if 200 <= response.status_code < 300:
+            data = response.json()
+            self._token = data.get('token')
+
+            # Update refresh token if a new one is provided
+            new_refresh_token = response.headers.get('x-lara-refresh-token')
+            if new_refresh_token:
+                self._refresh_token = new_refresh_token
+
+            if not self._token:
+                raise LaraApiError(500, "AuthenticationError", "Missing token in refresh response")
+        else:
+            # Refresh failed, raise the error
+            raise LaraApiError.from_response(response)
+
+    def _compute_signature(self, secret: str, method: str, path: str, content_md5: str,
+                          content_type: str, date: str) -> str:
+        """Compute HMAC-SHA256 signature for challenge-response authentication."""
+        challenge = f'{method}\n{path}\n{content_md5}\n{content_type}\n{date}'
+        secret_bytes = secret.encode('UTF-8')
+        challenge_bytes = challenge.encode('UTF-8')
+
+        signature = hmac.new(secret_bytes, challenge_bytes, hashlib.sha256).digest()
+        return base64.b64encode(signature).decode('UTF-8')
