@@ -685,6 +685,7 @@ class Translator:
                   use_cache: Union[bool, UseCache] = None, cache_ttl_s: int = None,
                   no_trace: bool = False, verbose: bool = False, style: Optional[TranslationStyle] = None,
                   headers: Optional[Dict[str, str]] = None, reasoning: bool = False,
+                  metadata: Optional[Union[str, Dict]] = None,
                   callback: Optional[Callable[[TextResult], None]] = None) -> TextResult:
         if isinstance(text, str):
             q = text
@@ -708,7 +709,8 @@ class Translator:
             'multiline': multiline, 'adapt_to': adapt_to, 'instructions': instructions, 'timeout': timeout_ms, 'q': q,
             'priority': priority.value if priority is not None else None,
             'use_cache': use_cache.value if use_cache is not None else None, 'cache_ttl': cache_ttl_s,
-            'glossaries': glossaries, 'verbose': verbose, 'style': style, 'reasoning': reasoning
+            'glossaries': glossaries, 'verbose': verbose, 'style': style, 'reasoning': reasoning,
+            'metadata': metadata
         }
 
         request_headers = {}
