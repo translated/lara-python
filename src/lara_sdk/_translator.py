@@ -370,12 +370,18 @@ class AudioStatus(Enum):
     ERROR = 'error'
 
 
+class VoiceGender(Enum):
+    MALE = 'male'
+    FEMALE = 'female'
+
+
 @dataclass
 class AudioOptions:
     adapt_to: Optional[List[str]] = None
     glossaries: Optional[List[str]] = None
     no_trace: Optional[bool] = None
     style: Optional[TranslationStyle] = None
+    voice_gender: Optional[VoiceGender] = None
 
 
 class Audio(LaraObject):
@@ -480,7 +486,8 @@ class AudioTranslator:
 
     def upload(self, file_path: str, filename: str, target: str, source: Optional[str] = None,
                adapt_to: Optional[List[str]] = None, glossaries: Optional[List[str]] = None,
-               no_trace: bool = False, style: Optional[TranslationStyle] = None) -> Audio:
+               no_trace: bool = False, style: Optional[TranslationStyle] = None,
+               voice_gender: Optional[VoiceGender] = None) -> Audio:
         with open(file_path, 'rb') as file_payload:
             response_data = self._client.get('/v2/audio/upload-url', {'filename': filename})
 
@@ -504,6 +511,8 @@ class AudioTranslator:
 
         if style is not None:
             body['style'] = style
+        if voice_gender is not None:
+            body['voice_gender'] = voice_gender.value
 
         headers = None
         if no_trace is True:
@@ -520,10 +529,12 @@ class AudioTranslator:
 
     def translate(self, file_path: str, filename: str, target: str, source: Optional[str] = None,
                   adapt_to: Optional[List[str]] = None, glossaries: Optional[List[str]] = None,
-                  no_trace: bool = False, style: Optional[TranslationStyle] = None) -> bytes:
+                  no_trace: bool = False, style: Optional[TranslationStyle] = None,
+                  voice_gender: Optional[VoiceGender] = None) -> bytes:
 
         audio = self.upload(file_path=file_path, filename=filename, target=target, source=source,
-                            adapt_to=adapt_to, glossaries=glossaries, no_trace=no_trace, style=style)
+                            adapt_to=adapt_to, glossaries=glossaries, no_trace=no_trace, style=style,
+                            voice_gender=voice_gender)
 
         max_wait_time = 60 * 15 # 15 minutes
         start = time.time()
