@@ -3,6 +3,7 @@ import datetime
 import hashlib
 import hmac
 import json
+import time
 from typing import Dict, Optional, Union, List
 
 import requests
@@ -121,13 +122,35 @@ class LaraClient:
         """
         return self._request_stream('POST', path, body, files, headers)
 
+    def _is_token_expired(self, buffer_seconds: int = 5) -> bool:
+        """Check if the current JWT token is expired or about to expire.
+
+        :param buffer_seconds: Number of seconds before actual expiry to consider the token expired.
+        :return: True if the token is expired or will expire within the buffer period.
+        """
+        if not self._token:
+            return True
+        try:
+            parts = self._token.split('.')
+            if len(parts) != 3:
+                return True
+            padded_encoded_payload = parts[1] + '=' * (-len(parts[1]) % 4)  # Pad base64 string if necessary
+            payload = json.loads(base64.urlsafe_b64decode(padded_encoded_payload))
+            exp = payload.get('exp')
+            if not isinstance(exp, (int, float)):
+                return True
+            return exp <= time.time() + buffer_seconds
+        except Exception:
+            return True
+
     def _request(self, method: str, path: str, body: Dict = None, files: Dict = None, headers: Dict = None,
                  retry_count: int = 0) -> Optional[Union[Dict, List, bytes]]:
         """
         Execute an authenticated HTTP request with automatic token management.
         """
-        # Ensure we have a valid token
-        if self._token is None:
+        # Ensure we have a valid, non-expired token
+        if self._token is None or self._is_token_expired():
+            self._token = None
             self._authenticate()
 
         if not path.startswith('/'):
@@ -174,14 +197,16 @@ class LaraClient:
         # Handle 401 - token expired, refresh and retry once
         if response.status_code == 401 and retry_count < 1:
             self._token = None
+            self._refresh_or_reauthenticate()
             return self._request(method, path, body, files, headers, retry_count=retry_count + 1)
 
         raise LaraApiError.from_response(response)
 
     def _request_stream(self, method: str, path: str, body: Dict = None, files: Dict = None, headers: Dict = None,
                         retry_count: int = 0):
-        # Ensure we have a valid token
-        if self._token is None:
+        # Ensure we have a valid, non-expired token
+        if self._token is None or self._is_token_expired():
+            self._token = None
             self._authenticate()
 
         if not path.startswith('/'):
@@ -209,6 +234,7 @@ class LaraClient:
             # Handle 401 - token expired, refresh and retry once
             if response.status_code == 401 and retry_count < 1:
                 self._token = None
+                self._refresh_or_reauthenticate()
                 yield from self._request_stream(method, path, body, files, headers, retry_count=retry_count + 1)
                 return
 
@@ -239,18 +265,33 @@ class LaraClient:
         if self._token is not None:
             return self._token
 
-        if self._refresh_token is not None:
-            # Try to refresh first
-            self._refresh()
-        elif isinstance(self._auth, AuthToken):
+        if isinstance(self._auth, AuthToken) and self._refresh_token is None:
             self._token = self._auth.token
             self._refresh_token = self._auth.refresh_token
-        elif isinstance(self._auth, AccessKey):
-            self._authenticate_with_access_key()
         else:
-            raise ValueError(f'Invalid authentication type: {type(self._auth).__name__}')
+            self._refresh_or_reauthenticate()
 
         return self._token
+
+    def _refresh_or_reauthenticate(self) -> None:
+        """
+        Try to refresh the token. If refresh fails, fall back to AccessKey re-authentication.
+        """
+        if self._refresh_token is not None:
+            # Try to refresh first
+            try:
+                self._refresh()
+                return
+            except LaraApiError as e:
+                self._refresh_token = None
+                if not isinstance(self._auth, AccessKey):
+                    raise
+
+        if isinstance(self._auth, AccessKey):
+            self._authenticate_with_access_key()
+            return
+
+        raise ValueError(f'No authentication method available for token renewal')
 
     def _authenticate_with_access_key(self) -> None:
         """Authenticate using AccessKey with challenge-response."""
