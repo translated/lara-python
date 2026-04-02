@@ -15,6 +15,7 @@ from ._errors import LaraApiError
 from ._s3client import S3Client, S3UploadFields
 
 TranslationStyle = Literal["faithful", "fluid", "creative"]
+ProfanityFilter = Literal["detect", "avoid", "hide"]
 GlossaryFileFormat = Literal["csv/table-uni", "csv/table-multi"]
 
 # Objects --------------------------------------------------------------------------------------------------------------
@@ -114,6 +115,11 @@ class TextBlock(LaraObject):
         self.text: str = kwargs.get('text')
         self.translatable: bool = kwargs.get('translatable', True)
 
+class ProfanityDetectResult(LaraObject):
+    def __init__(self, **kwargs):
+        self.masked_text: Optional[str] = kwargs.get('masked_text')
+        self.profanities: List[dict] = kwargs.get('profanities', [])
+
 class NGMemoryMatch(LaraObject):
     def __init__(self, **kwargs):
         self.memory: str = kwargs.get('memory')
@@ -138,6 +144,18 @@ class TextResult(LaraObject):
         self.glossaries: Optional[List[str]] = kwargs.get('glossaries', None)
         self.adapted_to_matches: Optional[Union[List[NGMemoryMatch], List[Optional[List[NGMemoryMatch]]]]] = None
         self.glossaries_matches: Optional[Union[List[NGGlossaryMatch], List[Optional[List[NGGlossaryMatch]]]]] = None
+        self.profanities: Optional[Union[ProfanityDetectResult, List[Optional[ProfanityDetectResult]]]] = None
+
+        # Parse profanities
+        raw_profanities = kwargs.get('profanities', None)
+        if raw_profanities is not None:
+            if isinstance(raw_profanities, dict):
+                self.profanities = ProfanityDetectResult(**raw_profanities)
+            elif isinstance(raw_profanities, list):
+                self.profanities = [
+                    ProfanityDetectResult(**p) if p is not None else None
+                    for p in raw_profanities
+                ]
 
         # Parse adapted_to_matches
         adapted_to_matches = kwargs.get('adapted_to_matches', None)
@@ -686,6 +704,7 @@ class Translator:
                   no_trace: bool = False, verbose: bool = False, style: Optional[TranslationStyle] = None,
                   headers: Optional[Dict[str, str]] = None, reasoning: bool = False,
                   metadata: Optional[Union[str, Dict]] = None,
+                  profanity_filter: Optional[ProfanityFilter] = None,
                   callback: Optional[Callable[[TextResult], None]] = None) -> TextResult:
         if isinstance(text, str):
             q = text
@@ -710,7 +729,7 @@ class Translator:
             'priority': priority.value if priority is not None else None,
             'use_cache': use_cache.value if use_cache is not None else None, 'cache_ttl': cache_ttl_s,
             'glossaries': glossaries, 'verbose': verbose, 'style': style, 'reasoning': reasoning,
-            'metadata': metadata
+            'metadata': metadata, 'profanity_filter': profanity_filter
         }
 
         request_headers = {}

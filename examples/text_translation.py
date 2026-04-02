@@ -24,7 +24,7 @@ def main():
 
     credentials = AccessKey(access_key_id, access_key_secret)
     lara = Translator(credentials)
-    
+
     try:
         # Example 1: Basic single string translation
         print("=== Basic Single String Translation ===")
@@ -48,7 +48,7 @@ def main():
             TextBlock(text='<div class="separator"></div>', translatable=False),  # Non-translatable HTML
             TextBlock(text="Every page you turn is a new journey, and the best part?", translatable=True)
         ]
-        
+
         result3 = lara.translate(text_blocks, target="it-IT", source="en-US")
         print(f"Original TextBlocks: {len(text_blocks)} blocks")
         print(f"Translated blocks: {len(result3.translation)}")
@@ -91,7 +91,21 @@ def main():
         print("Original: This is a comprehensive translation example")
         print(f"Italian (with all options): {result6.translation}\n")
 
-        # Example 7: Get available languages
+        # Example 7: Profanity filter options
+        print("=== Translation with Profanity Filter Options ===")
+        profanity_text = "Don't be such a tool."
+        detect_result = lara.translate(profanity_text, target="it-IT", source="en-US",
+                                       profanity_filter="detect", verbose=True)
+        hide_result = lara.translate(profanity_text, target="it-IT", source="en-US",
+                                     profanity_filter="hide", verbose=True)
+        avoid_result = lara.translate(profanity_text, target="it-IT", source="en-US",
+                                      profanity_filter="avoid", verbose=True)
+        print(f"Original: {profanity_text}")
+        print(f"Detect mode translation: {detect_result.translation}")
+        print(f"Hide mode translation: {hide_result.translation}")
+        print(f"Avoid mode translation: {avoid_result.translation}\n")
+
+        # Example 8: Get available languages
         print("=== Available Languages ===")
         languages = lara.languages()
         print(f"Supported languages: {languages}")
@@ -100,4 +114,4 @@ def main():
         print(f"Error: {error}")
 
 if __name__ == "__main__":
-    main() 
+    main()
