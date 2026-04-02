@@ -757,4 +757,13 @@ class Translator:
             'passlist': passlist
         }
 
-        return DetectResult(**self._client.post('/v2/detect', body))
+        return DetectResult(**self._client.post('/v2/detect/language', body))
+
+    def detect_profanities(self, text: str, *, language: str, content_type: str) -> ProfanityDetectResult:
+        body = {
+            'text': text,
+            'language': language,
+            'content_type': content_type
+        }
+
+        return ProfanityDetectResult(**self._client.post('/v2/detect/profanities', body))
