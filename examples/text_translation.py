@@ -110,6 +110,24 @@ def main():
         languages = lara.languages()
         print(f"Supported languages: {languages}")
 
+        # Example 9: Quality estimation for a single sentence pair
+        print("\n=== Quality Estimation: single sentence ===")
+        qe_single = lara.quality_estimation(
+            source="en-US", target="it-IT",
+            sentence="Hello, how are you today?",
+            translation="Ciao, come stai oggi?",
+        )
+        print(f"Score: {qe_single.score}")
+
+        # Example 10: Quality estimation for a batch of sentence pairs
+        print("\n=== Quality Estimation: batch ===")
+        qe_batch = lara.quality_estimation(
+            source="en-US", target="it-IT",
+            sentence=["Good morning.", "The weather is nice."],
+            translation=["Buongiorno.", "Il tempo è bello."],
+        )
+        print(f"Scores: {[r.score for r in qe_batch]}")
+
     except Exception as error:
         print(f"Error: {error}")
 

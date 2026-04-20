@@ -141,6 +141,10 @@ class StyleguideResults(LaraObject):
         self.original_translation: Optional[Union[str, List[str], List[TextBlock]]] = kwargs.get('original_translation')
         self.changes: List[StyleguideChange] = [StyleguideChange(**c) for c in kwargs.get('changes', [])]
 
+class QualityEstimationResult(LaraObject):
+    def __init__(self, **kwargs):
+        self.score: float = kwargs.get('score')
+
 class NGMemoryMatch(LaraObject):
     def __init__(self, **kwargs):
         self.memory: str = kwargs.get('memory')
@@ -815,3 +819,18 @@ class Translator:
         }
 
         return ProfanityDetectResult(**self._client.post('/v2/detect/profanities', body))
+
+    def quality_estimation(self, *, source: str, target: str,
+                           sentence: Union[str, List[str]],
+                           translation: Union[str, List[str]]) -> Union[QualityEstimationResult, List[QualityEstimationResult]]:
+        body = {
+            'source': source,
+            'target': target,
+            'sentence': sentence,
+            'translation': translation,
+        }
+
+        result = self._client.post('/v2/detect/quality-estimation', body)
+        if isinstance(result, list):
+            return [QualityEstimationResult(**r) for r in result]
+        return QualityEstimationResult(**result)

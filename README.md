@@ -422,6 +422,30 @@ result = lara.detect(
 )
 ```
 
+### 🎯 Quality Estimation
+
+Use `quality_estimation()` to score how well a translation matches its source. Pass a single sentence/translation pair to get a single result, or two parallel lists to get one result per pair.
+
+```python
+# Single pair
+single = lara.quality_estimation(
+    source="en-US",
+    target="it-IT",
+    sentence="Hello, how are you today?",
+    translation="Ciao, come stai oggi?",
+)
+print(single.score)  # e.g. 0.768
+
+# Batch
+batch = lara.quality_estimation(
+    source="en-US",
+    target="it-IT",
+    sentence=["Good morning.", "The weather is nice."],
+    translation=["Buongiorno.", "Il tempo è bello."],
+)
+print([r.score for r in batch])  # e.g. [0.751, 0.713]
+```
+
 ### Translation Options
 
 ```python
