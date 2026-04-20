@@ -753,7 +753,7 @@ class Translator:
                   metadata: Optional[Union[str, Dict]] = None,
                   profanity_filter: Optional[ProfanityFilter] = None,
                   styleguide_id: Optional[str] = None,
-                  styleguide_reasoning: bool = False,
+                  styleguide_reasoning: Optional[bool] = None,
                   styleguide_explanation_language: Optional[str] = None,
                   callback: Optional[Callable[[TextResult], None]] = None) -> TextResult:
         if isinstance(text, str):
