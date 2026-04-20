@@ -70,6 +70,15 @@ class GlossaryTerm:
     language: str
     value: str
 
+class Styleguide(LaraObject):
+    def __init__(self, **kwargs):
+        self.id: str = kwargs.get('id')
+        self.name: str = kwargs.get('name')
+        self.owner_id: str = kwargs.get('owner_id')
+        self.content: Optional[str] = kwargs.get('content', None)
+        self.created_at: datetime = self._parse_date(kwargs.get('created_at', None))
+        self.updated_at: datetime = self._parse_date(kwargs.get('updated_at', None))
+
 @dataclass
 class DocumentOptions:
     adapt_to: Optional[List[str]] = None
@@ -120,6 +129,18 @@ class ProfanityDetectResult(LaraObject):
         self.masked_text: Optional[str] = kwargs.get('masked_text')
         self.profanities: List[dict] = kwargs.get('profanities', [])
 
+class StyleguideChange(LaraObject):
+    def __init__(self, **kwargs):
+        self.id: Optional[str] = kwargs.get('id')
+        self.original_translation: str = kwargs.get('original_translation')
+        self.refined_translation: str = kwargs.get('refined_translation')
+        self.explanation: str = kwargs.get('explanation')
+
+class StyleguideResults(LaraObject):
+    def __init__(self, **kwargs):
+        self.original_translation: Optional[Union[str, List[str], List[TextBlock]]] = kwargs.get('original_translation')
+        self.changes: List[StyleguideChange] = [StyleguideChange(**c) for c in kwargs.get('changes', [])]
+
 class NGMemoryMatch(LaraObject):
     def __init__(self, **kwargs):
         self.memory: str = kwargs.get('memory')
@@ -145,6 +166,7 @@ class TextResult(LaraObject):
         self.adapted_to_matches: Optional[Union[List[NGMemoryMatch], List[Optional[List[NGMemoryMatch]]]]] = None
         self.glossaries_matches: Optional[Union[List[NGGlossaryMatch], List[Optional[List[NGGlossaryMatch]]]]] = None
         self.profanities: Optional[Union[ProfanityDetectResult, List[Optional[ProfanityDetectResult]]]] = None
+        self.styleguide_results: Optional[StyleguideResults] = None
 
         # Parse profanities
         raw_profanities = kwargs.get('profanities', None)
@@ -156,6 +178,11 @@ class TextResult(LaraObject):
                     ProfanityDetectResult(**p) if p is not None else None
                     for p in raw_profanities
                 ]
+
+        # Parse styleguide_results
+        raw_styleguide_results = kwargs.get('styleguide_results', None)
+        if raw_styleguide_results is not None:
+            self.styleguide_results = StyleguideResults(**raw_styleguide_results)
 
         # Parse adapted_to_matches
         adapted_to_matches = kwargs.get('adapted_to_matches', None)
@@ -366,6 +393,21 @@ class Glossaries:
         body = {'term': term.__dict__ if term else None, 'guid': guid}
         return GlossaryImport(**self._client.delete(f'/v2/glossaries/{id_}/content', body))
 
+
+class Styleguides:
+    def __init__(self, client: LaraClient):
+        self._client: LaraClient = client
+
+    def list(self) -> List[Styleguide]:
+        return [Styleguide(**e) for e in self._client.get('/v2/styleguides')]
+
+    def get(self, id_: str) -> Optional[Styleguide]:
+        try:
+            return Styleguide(**self._client.get(f'/v2/styleguides/{id_}'))
+        except LaraApiError as e:
+            if e.status_code == 404:
+                return None
+            raise
 
 
 class DocumentStatus(Enum):
@@ -690,6 +732,7 @@ class Translator:
         self.memories: Memories = Memories(self._client)
         self.documents: Documents = Documents(self._client)
         self.glossaries: Glossaries = Glossaries(self._client)
+        self.styleguides: Styleguides = Styleguides(self._client)
         self.audio: AudioTranslator = AudioTranslator(self._client)
         self.images: ImageTranslator = ImageTranslator(self._client)
 
@@ -705,6 +748,9 @@ class Translator:
                   headers: Optional[Dict[str, str]] = None, reasoning: bool = False,
                   metadata: Optional[Union[str, Dict]] = None,
                   profanity_filter: Optional[ProfanityFilter] = None,
+                  styleguide_id: Optional[str] = None,
+                  styleguide_reasoning: bool = False,
+                  styleguide_explanation_language: Optional[str] = None,
                   callback: Optional[Callable[[TextResult], None]] = None) -> TextResult:
         if isinstance(text, str):
             q = text
@@ -729,7 +775,9 @@ class Translator:
             'priority': priority.value if priority is not None else None,
             'use_cache': use_cache.value if use_cache is not None else None, 'cache_ttl': cache_ttl_s,
             'glossaries': glossaries, 'verbose': verbose, 'style': style, 'reasoning': reasoning,
-            'metadata': metadata, 'profanity_filter': profanity_filter
+            'metadata': metadata, 'profanity_filter': profanity_filter,
+            'styleguide_id': styleguide_id, 'styleguide_reasoning': styleguide_reasoning,
+            'styleguide_explanation_language': styleguide_explanation_language
         }
 
         request_headers = {}

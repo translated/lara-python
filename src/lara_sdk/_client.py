@@ -184,13 +184,7 @@ class LaraClient:
             if "text/csv" in response.headers.get('Content-Type', '') or "image/" in response.headers.get('Content-Type', ''):
                 return response.content
             try:
-                data = response.json()
-
-                # Backward compatibility
-                if isinstance(data, dict) and 'content' in data:
-                    return data['content']
-
-                return data
+                return response.json()
             except:
                 return None
 
