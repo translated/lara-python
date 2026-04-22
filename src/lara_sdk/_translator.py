@@ -126,7 +126,7 @@ class TextBlock(LaraObject):
 
 class ProfanityDetectResult(LaraObject):
     def __init__(self, **kwargs):
-        self.masked_text: Optional[str] = kwargs.get('masked_text')
+        self.masked_text: str = kwargs.get('masked_text')
         self.profanities: List[dict] = kwargs.get('profanities', [])
 
 class StyleguideChange(LaraObject):
