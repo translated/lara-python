@@ -53,7 +53,7 @@ def main():
         print(f"Original TextBlocks: {len(text_blocks)} blocks")
         print(f"Translated blocks: {len(result3.translation)}")
         for i, translation in enumerate(result3.translation):
-            print(f"Block {i + 1}: {translation['text']}")
+            print(f"Block {i + 1}: {translation.text}")
         print()
 
         # Example 4: Translation with instructions
@@ -91,19 +91,18 @@ def main():
         print("Original: This is a comprehensive translation example")
         print(f"Italian (with all options): {result6.translation}\n")
 
-        # Example 7: Profanity filter options
-        print("=== Translation with Profanity Filter Options ===")
+        # Example 7: Profanities detection and handling options
+        print("=== Translation with Profanities Detection and Handling Options ===")
         profanity_text = "Don't be such a tool."
         detect_result = lara.translate(profanity_text, target="it-IT", source="en-US",
-                                       profanity_filter="detect", verbose=True)
+                                       profanities_detect="source_target",
+                                       profanities_handling="detect", verbose=True)
         hide_result = lara.translate(profanity_text, target="it-IT", source="en-US",
-                                     profanity_filter="hide", verbose=True)
-        avoid_result = lara.translate(profanity_text, target="it-IT", source="en-US",
-                                      profanity_filter="avoid", verbose=True)
+                                     profanities_detect="target",
+                                     profanities_handling="hide", verbose=True)
         print(f"Original: {profanity_text}")
         print(f"Detect mode translation: {detect_result.translation}")
         print(f"Hide mode translation: {hide_result.translation}")
-        print(f"Avoid mode translation: {avoid_result.translation}\n")
 
         # Example 8: Get available languages
         print("=== Available Languages ===")
