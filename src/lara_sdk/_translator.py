@@ -807,7 +807,7 @@ class Translator:
             request_headers['X-No-Trace'] = 'true'
 
         last_result = None
-        for partial in self._client.post_and_get_stream('/translate', body, headers=request_headers):
+        for partial in self._client.post_and_get_stream('/v2/translate', body, headers=request_headers):
             last_result = partial
             if callback is not None and reasoning:
                 callback(TextResult(**partial))
