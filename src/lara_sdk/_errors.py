@@ -7,13 +7,8 @@ class LaraApiError(LaraError):
     def from_response(cls, response):
         body = response.json()
 
-        if 'error' in body:  # backward compatibility
-            error = body['error']
-            _type = error.get('type', 'UnknownError')
-            message = error.get('message', 'An unknown error occurred')
-        else:
-            _type = body.get('type', 'UnknownError')
-            message = body.get('message', 'An unknown error occurred')
+        _type = body.get('type', 'UnknownError')
+        message = body.get('message', 'An unknown error occurred')
 
         return cls(response.status_code, _type, message)
 

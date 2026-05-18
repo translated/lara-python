@@ -237,13 +237,8 @@ class LaraClient:
         for line in response.iter_lines(decode_unicode=True):
             if line:
                 try:
-                    parsed = json.loads(line)
-                    data = parsed.get('data', parsed)
-                    if isinstance(data, dict) and 'content' in data:  # backward compatibility
-                        yield data['content']
-                    else:
-                        yield data
-                except (json.JSONDecodeError, AttributeError):
+                    yield json.loads(line)
+                except json.JSONDecodeError:
                     pass
 
     def _authenticate(self) -> str:
