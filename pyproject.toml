@@ -19,7 +19,7 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
-dependencies = ["requests", "gzip-stream"]
+dependencies = ["requests"]
 
 [tool.setuptools.dynamic]
 version = { attr = "lara_sdk.__version__" }

@@ -7,8 +7,6 @@ import mimetypes
 from pathlib import Path
 import json
 
-from gzip_stream import GZIPCompressedStream
-
 from ._client import LaraObject, LaraClient
 from ._credentials import Credentials, AccessKey, AuthToken
 from ._errors import LaraApiError
@@ -18,6 +16,7 @@ TranslationStyle = Literal["faithful", "fluid", "creative"]
 ProfanitiesDetect = Literal["target", "source_target"]
 ProfanitiesHandling = Literal["hide", "avoid", "detect"]
 GlossaryFileFormat = Literal["csv/table-uni", "csv/table-multi"]
+MemoryExportFormat = Literal["tmx", "jtm"]
 
 # Objects --------------------------------------------------------------------------------------------------------------
 
@@ -44,6 +43,10 @@ class MemoryImport(LaraObject):
         self.channel: int = kwargs.get('channel')
         self.size: int = kwargs.get('size')
         self.progress: float = kwargs.get('progress')
+
+class MemoryExport(LaraObject):
+    def __init__(self, **kwargs):
+        self.job_id: str = kwargs.get('job_id')
 
 class Glossary(LaraObject):
     def __init__(self, **kwargs):
@@ -289,11 +292,15 @@ class Memories:
             return results
         return results[0] if len(results) > 0 else None
 
-    def import_tmx(self, id_: str, tmx: str) -> MemoryImport:
+    def import_tmx(self, id_: str, tmx: str, *, callback_url: Optional[str] = None,
+                   gzip: bool = False) -> MemoryImport:
         with open(tmx, 'rb') as stream:
-            compressed_stream = GZIPCompressedStream(stream, compression_level=7)
-            return MemoryImport(**self._client.post(f'/v2/memories/{id_}/import',
-                                                    {'compression': 'gzip'}, {'tmx': compressed_stream}))
+            body = {}
+            if gzip:
+                body['compression'] = 'gzip'
+            if callback_url is not None:
+                body['callback_url'] = callback_url
+            return MemoryImport(**self._client.post(f'/v2/memories/{id_}/import', body, {'tmx': stream}))
 
     def add_translation(self, id_: Union[str, List[str]], source: str, target: str, sentence: str, translation: str,
                         *, tuid: str = None, sentence_before: str = None, sentence_after: str = None,
@@ -321,6 +328,12 @@ class Memories:
 
     def get_import_status(self, id_: str) -> MemoryImport:
         return MemoryImport(**self._client.get(f'/v2/memories/imports/{id_}'))
+
+    def export_async(self, id_: str, callback_url: str, format: Optional[MemoryExportFormat] = None) -> MemoryExport:
+        return MemoryExport(**self._client.get(
+            f'/v2/memories/{id_}/export/async',
+            {'callback_url': callback_url, 'format': format}
+        ))
 
     def wait_for_import(self, memory_import: MemoryImport, *,
                         update_callback: Callable[[MemoryImport], None] = None,
@@ -367,12 +380,14 @@ class Glossaries:
             'name': name
         }))
 
-    def import_csv(self, id_: str, csv: str, content_type: GlossaryFileFormat = "csv/table-uni") -> GlossaryImport:
+    def import_csv(self, id_: str, csv: str,
+                   content_type: GlossaryFileFormat = "csv/table-uni",
+                   *, gzip: bool = False) -> GlossaryImport:
         with open(csv, 'rb') as stream:
-            compressed_stream = GZIPCompressedStream(stream, compression_level=7)
-            return GlossaryImport(**self._client.post(f'/v2/glossaries/{id_}/import',
-                                                    {'compression': 'gzip', 'content_type': content_type},
-                                                    {'csv': compressed_stream}))
+            body = {'content_type': content_type}
+            if gzip:
+                body['compression'] = 'gzip'
+            return GlossaryImport(**self._client.post(f'/v2/glossaries/{id_}/import', body, {'csv': stream}))
 
     def get_import_status(self, id_: str) -> GlossaryImport:
         return GlossaryImport(**self._client.get(f'/v2/glossaries/imports/{id_}'))

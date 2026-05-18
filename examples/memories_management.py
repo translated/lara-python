@@ -9,6 +9,8 @@ This example demonstrates:
 - Add individual translations
 - Multiple memory operations
 - TMX file import with progress monitoring
+- TMX import with a callback URL (async notification)
+- Async memory export with callback URL
 - Translation deletion
 - Translation with TUID and context
 """
@@ -116,7 +118,42 @@ def main():
         else:
             print(f"TMX file not found: {tmx_file_path}")
 
-        # Example 5: Translation deletion
+        # Example 5: TMX import with a callback URL
+        print("=== TMX Import with Callback URL ===")
+        if os.path.exists(tmx_file_path):
+            try:
+                callback_url = "https://your-server.example.com/lara/import-callback"
+                tmx_import_with_callback = lara.memories.import_tmx(
+                    memory_id,
+                    tmx_file_path,
+                    callback_url=callback_url,
+                )
+                print(f"Import started with ID: {tmx_import_with_callback.id} (callback: {callback_url})")
+
+                # You can also combine gzip + callback_url:
+                # lara.memories.import_tmx(memory_id, tmx_file_path, gzip=True, callback_url=callback_url)
+                print()
+            except Exception as e:
+                print(f"Error starting TMX import with callback: {e}\n")
+        else:
+            print(f"TMX file not found: {tmx_file_path}\n")
+
+        # Example 6: Async memory export
+        print("=== Async Memory Export ===")
+        try:
+            export_callback_url = "https://your-server.example.com/lara/export-callback"
+            export_job = lara.memories.export_async(
+                memory_id,
+                callback_url=export_callback_url,
+                format="tmx",
+            )
+            print(f"✅ Export job started (Job ID: {export_job.job_id})")
+            print(f"The export result will be delivered to: {export_callback_url}")
+            print()
+        except Exception as e:
+            print(f"Error starting async export: {e}\n")
+
+        # Example 7: Translation deletion
         print("=== Translation Deletion ===")
         try:
             # Delete a specific translation unit (with TUID)

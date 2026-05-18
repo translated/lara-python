@@ -362,6 +362,36 @@ memory_import = lara.memories.add_translation(
 # TMX import from file
 memory_import = lara.memories.import_tmx("mem_1A2b3C4d5E6f7G8h9I0jKl", "/path/to/your/memory.tmx")  # Replace with actual TMX file path
 
+# TMX import with gzip compression
+memory_import = lara.memories.import_tmx(
+    "mem_1A2b3C4d5E6f7G8h9I0jKl",
+    "/path/to/your/memory.tmx",
+    gzip=True
+)
+
+# TMX import with a callback URL (notified when the import completes)
+memory_import = lara.memories.import_tmx(
+    "mem_1A2b3C4d5E6f7G8h9I0jKl",
+    "/path/to/your/memory.tmx",
+    callback_url="https://your-server.example.com/lara/import-callback"
+)
+
+# TMX import with both gzip compression and a callback URL
+memory_import = lara.memories.import_tmx(
+    "mem_1A2b3C4d5E6f7G8h9I0jKl",
+    "/path/to/your/memory.tmx",
+    gzip=True,
+    callback_url="https://your-server.example.com/lara/import-callback"
+)
+
+# Async memory export - returns a job_id; the result is delivered to your callback URL when ready
+memory_export = lara.memories.export_async(
+    "mem_1A2b3C4d5E6f7G8h9I0jKl",
+    callback_url="https://your-server.example.com/lara/export-callback",
+    format="tmx"  # optional, defaults to the server-side default ("tmx" or "jtm")
+)
+job_id = memory_export.job_id
+
 # Delete translation
 # Important: if you omit tuid, all entries that match the provided fields will be removed
 delete_job = lara.memories.delete_translation(
