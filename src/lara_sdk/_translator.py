@@ -84,6 +84,7 @@ class Styleguide(LaraObject):
         self.content: Optional[str] = kwargs.get('content', None)
         self.created_at: datetime = self._parse_date(kwargs.get('created_at', None))
         self.updated_at: datetime = self._parse_date(kwargs.get('updated_at', None))
+        self.is_personal: bool = kwargs.get('is_personal')
 
 @dataclass
 class DocumentOptions:
