@@ -32,7 +32,7 @@ class Memory(LaraObject):
         self.owner_id: str = kwargs.get('owner_id')
         self.collaborators_count: int = kwargs.get('collaborators_count')
         self.shared_at: datetime = self._parse_date(kwargs.get('shared_at'))
-        self.is_personal: bool = kwargs.get('isPersonal')
+        self.is_personal: bool = kwargs.get('is_personal')
 
 
 class MemoryImport(LaraObject):
@@ -55,7 +55,7 @@ class Glossary(LaraObject):
         self.owner_id: str = kwargs.get('owner_id')
         self.created_at: datetime = self._parse_date(kwargs.get('created_at', None))
         self.updated_at: datetime = self._parse_date(kwargs.get('updated_at', None))
-        self.is_personal: bool = kwargs.get('isPersonal')
+        self.is_personal: bool = kwargs.get('is_personal')
 
 class GlossaryImport(LaraObject):
     def __init__(self, **kwargs):
