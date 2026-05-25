@@ -1,14 +1,14 @@
+import json
+import mimetypes
 import time
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Optional, Union, List, Iterable, Callable, Literal, Dict
-from dataclasses import dataclass
-import mimetypes
 from pathlib import Path
-import json
+from typing import Callable, Dict, Iterable, List, Literal, Optional, Union
 
-from ._client import LaraObject, LaraClient
-from ._credentials import Credentials, AccessKey, AuthToken
+from ._client import LaraClient, LaraObject
+from ._credentials import AccessKey, AuthToken, Credentials
 from ._errors import LaraApiError
 from ._s3client import S3Client, S3UploadFields
 
@@ -777,7 +777,7 @@ class Translator:
     def translate(self, text: Union[str, Iterable[str], Iterable[TextBlock]], *,
                   source: str = None, source_hint: str = None, target: str, adapt_to: List[str] = None,
                   glossaries: List[str] = None, instructions: List[str] = None, content_type: str = None,
-                  multiline: bool = True, timeout_ms: int = None, priority: TranslatePriority = None,
+                  multiline: Optional[bool] = None, timeout_ms: int = None, priority: TranslatePriority = None,
                   use_cache: Union[bool, UseCache] = None, cache_ttl_s: int = None,
                   no_trace: bool = False, verbose: bool = False, style: Optional[TranslationStyle] = None,
                   headers: Optional[Dict[str, str]] = None, reasoning: bool = False,
