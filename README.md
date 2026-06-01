@@ -14,6 +14,7 @@ All major translation features are accessible, making it easy to integrate and c
 - **Audio Translation**: Audio file translation with status monitoring
 - **Translation Memory**: Store and reuse translations for consistency
 - **Glossaries**: Enforce terminology standards across translations
+- **Styleguides**: Define tone, voice, and writing style rules for translations
 - **Language Detection**: Automatic source language identification
 - **Advanced Options**: Translation instructions and more
 
@@ -136,6 +137,17 @@ python memories_management.py
 ```bash
 cd examples
 python glossaries_management.py
+```
+
+### Styleguide Management
+- **[styleguides_management.py](examples/styleguides_management.py)** - Styleguide management examples
+  - Create, list, get, update, delete styleguides
+  - Update name, content, or both at once
+  - Handling of non-existent styleguides
+
+```bash
+cd examples
+python styleguides_management.py
 ```
 
 ### Language Detection
@@ -422,6 +434,32 @@ csv_data = lara.glossaries.export("gls_1A2b3C4d5E6f7G8h9I0jKl", "csv/table-uni",
 
 # Get glossary terms count
 counts = lara.glossaries.counts("gls_1A2b3C4d5E6f7G8h9I0jKl")
+```
+
+### 📋 Styleguide Management
+
+```python
+# Create styleguide
+styleguide = lara.styleguides.create("MyStyleguide", "Always use formal language.")
+
+# List all styleguides
+styleguides = lara.styleguides.list()
+
+# Get a specific styleguide
+styleguide = lara.styleguides.get("stg_1A2b3C4d5E6f7G8h9I0jKl")
+
+# Update styleguide — pass None for fields you don't want to change
+# Update only the name
+styleguide = lara.styleguides.update("stg_1A2b3C4d5E6f7G8h9I0jKl", "UpdatedStyleguide")
+
+# Update only the content
+styleguide = lara.styleguides.update("stg_1A2b3C4d5E6f7G8h9I0jKl", content="Always use informal language.")
+
+# Update both
+styleguide = lara.styleguides.update("stg_1A2b3C4d5E6f7G8h9I0jKl", "UpdatedStyleguide", "Always use informal language.")
+
+# Delete styleguide
+styleguide = lara.styleguides.delete("stg_1A2b3C4d5E6f7G8h9I0jKl")
 ```
 
 ### 🌐 Language Detection

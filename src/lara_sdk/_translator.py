@@ -437,6 +437,11 @@ class Styleguides:
     def list(self) -> List[Styleguide]:
         return [Styleguide(**e) for e in self._client.get('/v2/styleguides')]
 
+    def create(self, name: str, content: str) -> Styleguide:
+        return Styleguide(**self._client.post('/v2/styleguides', {
+            'name': name, 'content': content
+        }))
+
     def get(self, id_: str) -> Optional[Styleguide]:
         try:
             return Styleguide(**self._client.get(f'/v2/styleguides/{id_}'))
@@ -444,6 +449,17 @@ class Styleguides:
             if e.status_code == 404:
                 return None
             raise
+
+    def delete(self, id_: str) -> Styleguide:
+        return Styleguide(**self._client.delete(f'/v2/styleguides/{id_}'))
+
+    def update(self, id_: str, name: Optional[str] = None, content: Optional[str] = None) -> Styleguide:
+        body = {}
+        if name is not None:
+            body['name'] = name
+        if content is not None:
+            body['content'] = content
+        return Styleguide(**self._client.put(f'/v2/styleguides/{id_}', body))
 
 
 class DocumentStatus(Enum):
