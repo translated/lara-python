@@ -17,6 +17,7 @@ ProfanitiesDetect = Literal["target", "source_target"]
 ProfanitiesHandling = Literal["hide", "avoid", "detect"]
 GlossaryFileFormat = Literal["csv/table-uni", "csv/table-multi"]
 MemoryExportFormat = Literal["tmx", "jtm"]
+ImageTranslationModel = Literal["overlay", "inpainting", "generative", "generative_fast"]
 
 # Objects --------------------------------------------------------------------------------------------------------------
 
@@ -666,7 +667,8 @@ class ImageTranslator:
     def translate(self, image_path: str, target: str, source: Optional[str] = None, *,
                   adapt_to: Optional[List[str]] = None, glossaries: Optional[List[str]] = None,
                   no_trace: bool = False, style: Optional[TranslationStyle] = None,
-                  text_removal: Optional[Literal["overlay", "inpainting"]] = None) -> bytes:
+                  text_removal: Optional[Literal["overlay", "inpainting"]] = None,
+                  model: Optional[ImageTranslationModel] = None) -> bytes:
         with open(image_path, 'rb') as file_payload:
             mime_type, _ = mimetypes.guess_type(image_path)
             if mime_type is None:
@@ -686,7 +688,17 @@ class ImageTranslator:
             if style is not None:
                 data['style'] = style
             if text_removal is not None:
-                data['text_removal'] = text_removal
+                import warnings
+                warnings.warn(
+                    "The 'text_removal' parameter is deprecated. Use 'model' instead.",
+                    DeprecationWarning,
+                    stacklevel=2
+                )
+
+            if model is None:
+                model = text_removal
+            if model is not None:
+                data['model'] = model
 
             headers = {}
             if no_trace is True:

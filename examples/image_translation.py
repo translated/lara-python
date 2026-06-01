@@ -36,7 +36,7 @@ def main():
             source="en-US",
             target="fr-FR",
             image_path=sample_image_path,
-            text_removal="overlay"
+            model="overlay"
         )
 
         # Save translated image
@@ -54,7 +54,7 @@ def main():
             source="en-US",
             target="de-DE",
             image_path=sample_image_path,
-            text_removal="inpainting"
+            model="inpainting"
         )
 
         output_path2 = "sample_image_translated_inpaint_de.png"
@@ -86,7 +86,7 @@ def main():
             source="en-US",
             target="it-IT",
             image_path=sample_image_path,
-            text_removal="overlay",
+            model="overlay",
             style="fluid"
         )
 
@@ -103,7 +103,7 @@ def main():
             source="en-US",
             target="ja-JP",
             image_path=sample_image_path,
-            text_removal="inpainting",
+            model="inpainting",
             adapt_to=["mem_1A2b3C4d5E6f7G8h9I0jKl"],  # Replace with actual memory IDs
             glossaries=["gls_1A2b3C4d5E6f7G8h9I0jKl"],  # Replace with actual glossary IDs
             style="faithful"
@@ -140,7 +140,7 @@ def main():
             source="en-US",
             target="ko-KR",
             image_path=sample_image_path,
-            text_removal="overlay",
+            model="overlay",
             no_trace=True
         )
 
@@ -157,7 +157,7 @@ def main():
             source=None,  # Auto-detect
             target="en-US",
             image_path=sample_image_path,
-            text_removal="overlay"
+            model="overlay"
         )
 
         output_path6 = "sample_image_translated_autodetect_en.png"

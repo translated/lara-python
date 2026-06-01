@@ -282,7 +282,7 @@ translated_image = lara.images.translate(
   source="en-US",
   target="fr-FR",
   image_path="/path/to/your/image.png",  # Replace with actual file path
-  text_removal="overlay"
+  model="overlay"
 )
 ```
 
