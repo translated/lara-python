@@ -7,7 +7,7 @@ Complete glossary management examples for the Lara Python SDK
 This example demonstrates:
 - Create, list, update, delete glossaries
 - CSV import with status monitoring
-- Glossary export
+- Glossary export (sync and async)
 - Glossary terms count
 - Import status checking
 - Add/replace and delete glossary term entries
@@ -88,7 +88,20 @@ def main():
         else:
             print(f"CSV file not found: {csv_file_path}")
 
-        # Example 4: Export functionality
+        # Example 4: CSV import with a callback URL (async notification when the import completes)
+        print("=== CSV Import with Callback URL ===")
+        if os.path.exists(csv_file_path):
+            try:
+                callback_url = "https://your-server.example.com/lara/import-callback"  # Replace with your endpoint
+                import_with_callback = lara.glossaries.import_csv(glossary_id, csv_file_path, callback_url=callback_url)
+                print(f"Import started with ID: {import_with_callback.id} (callback: {callback_url})")
+                print()
+            except Exception as e:
+                print(f"Error starting CSV import with callback: {e}\n")
+        else:
+            print(f"CSV file not found: {csv_file_path}")
+
+        # Example 5: Export functionality
         print("=== Export Functionality ===")
         try:
             # Export as CSV table unidirectional format
@@ -101,11 +114,22 @@ def main():
             with open(export_file_path, 'wb') as f:
                 f.write(csv_uni_data)
             print(f"💾 Sample export saved to: {os.path.basename(export_file_path)}")
+
+            # Async export - returns a job_id; the result is delivered to your callback URL when ready
+            print("📤 Starting async export...")
+            glossary_export = lara.glossaries.export_async(
+                glossary_id,
+                callback_url="https://your-server.example.com/lara/export-callback",  # Replace with your actual callback URL
+                content_type="csv/table-uni",
+                source="en-US"
+            )
+            print(f"✅ Async export started (job ID: {glossary_export.job_id})")
+            print("   The export result will be delivered to your callback URL when ready.")
             print()
         except Exception as e:
             print(f"Error with export: {e}\n")
 
-        # Example 5: Glossary Terms Count
+        # Example 6: Glossary Terms Count
         print("=== Glossary Terms Count ===")
         try:
             # Get detailed counts
@@ -127,7 +151,7 @@ def main():
         except Exception as e:
             print(f"Error getting glossary terms count: {e}\n")
 
-        # Example 6: Add/Replace and Delete glossary term entries
+        # Example 7: Add/Replace and Delete glossary term entries
         print("=== Glossary Term Entries ===")
         try:
             # Add a new entry with multiple language terms

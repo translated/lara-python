@@ -67,6 +67,10 @@ class GlossaryImport(LaraObject):
         self.size: int = kwargs.get('size')
         self.progress: float = kwargs.get('progress')
 
+class GlossaryExport(LaraObject):
+    def __init__(self, **kwargs):
+        self.job_id: str = kwargs.get('job_id')
+
 class GlossaryCounts(LaraObject):
     def __init__(self, **kwargs):
         self.unidirectional: Optional[Dict[str, int]] = kwargs.get('unidirectional')
@@ -384,11 +388,13 @@ class Glossaries:
 
     def import_csv(self, id_: str, csv: str,
                    content_type: GlossaryFileFormat = "csv/table-uni",
-                   *, gzip: bool = False) -> GlossaryImport:
+                   *, callback_url: Optional[str] = None, gzip: bool = False) -> GlossaryImport:
         with open(csv, 'rb') as stream:
             body = {'content_type': content_type}
             if gzip:
                 body['compression'] = 'gzip'
+            if callback_url is not None:
+                body['callback_url'] = callback_url
             return GlossaryImport(**self._client.post(f'/v2/glossaries/{id_}/import', body, {'csv': stream}))
 
     def get_import_status(self, id_: str) -> GlossaryImport:
@@ -413,6 +419,12 @@ class Glossaries:
     def counts(self, id_: str) -> GlossaryCounts:
         return GlossaryCounts(**self._client.get(f'/v2/glossaries/{id_}/counts'))
 
+    def export_async(self, id_: str, callback_url: str, content_type: GlossaryFileFormat,
+                     source: Optional[str] = None) -> GlossaryExport:
+        return GlossaryExport(**self._client.get(
+            f'/v2/glossaries/{id_}/export/async',
+            {'callback_url': callback_url, 'content_type': content_type, 'source': source}
+        ))
 
     def export(self, id_: str, content_type: GlossaryFileFormat, source: Optional[str] = None) -> bytes:
         response = self._client.get(f'/v2/glossaries/{id_}/export', {

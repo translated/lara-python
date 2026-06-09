@@ -130,7 +130,7 @@ python memories_management.py
 - **[glossaries_management.py](examples/glossaries_management.py)** - Glossary management examples
   - Create, list, update, delete glossaries
   - CSV import with status monitoring
-  - Glossary export
+  - Glossary export (sync and async)
   - Glossary terms count
   - Import status checking
 
@@ -423,6 +423,13 @@ glossary = lara.glossaries.create("MyGlossary")
 # Import CSV from file
 glossary_import = lara.glossaries.import_csv("gls_1A2b3C4d5E6f7G8h9I0jKl", "/path/to/your/glossary.csv")  # Replace with actual CSV file path
 
+# Import CSV with a callback URL (async notification when the import completes)
+glossary_import = lara.glossaries.import_csv(
+    "gls_1A2b3C4d5E6f7G8h9I0jKl",
+    "/path/to/your/glossary.csv",
+    callback_url="https://your-server.example.com/lara/import-callback"
+)
+
 # Check import status
 import_status = lara.glossaries.get_import_status(import_id)
 
@@ -431,6 +438,15 @@ completed_import = lara.glossaries.wait_for_import(glossary_import, max_wait_tim
 
 # Export glossary
 csv_data = lara.glossaries.export("gls_1A2b3C4d5E6f7G8h9I0jKl", "csv/table-uni", "en-US")
+
+# Async glossary export - returns a job_id; the result is delivered to your callback URL when ready
+glossary_export = lara.glossaries.export_async(
+    "gls_1A2b3C4d5E6f7G8h9I0jKl",
+    callback_url="https://your-server.example.com/lara/export-callback",
+    content_type="csv/table-uni",
+    source="en-US"
+)
+job_id = glossary_export.job_id
 
 # Get glossary terms count
 counts = lara.glossaries.counts("gls_1A2b3C4d5E6f7G8h9I0jKl")
