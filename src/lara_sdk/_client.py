@@ -254,11 +254,7 @@ class LaraClient:
         if self._token is not None:
             return self._token
 
-        if isinstance(self._auth, AuthToken) and self._refresh_token is None:
-            self._token = self._auth.token
-            self._refresh_token = self._auth.refresh_token
-        else:
-            self._refresh_or_reauthenticate()
+        self._refresh_or_reauthenticate()
 
         return self._token
 
@@ -317,10 +313,10 @@ class LaraClient:
         if 200 <= response.status_code < 300:
             data = response.json()
             self._token = data.get('token')
-            self._refresh_token = response.headers.get('x-lara-refresh-token')
+            self._refresh_token = response.headers.get('x-lara-refresh-token') or None
 
-            if not self._token or not self._refresh_token:
-                raise LaraApiError(500, "AuthenticationError", "Missing token or refresh token in authentication response")
+            if not self._token:
+                raise LaraApiError(500, "AuthenticationError", "Missing token in authentication response")
         else:
             raise LaraApiError.from_response(response)
 
@@ -340,11 +336,7 @@ class LaraClient:
         if 200 <= response.status_code < 300:
             data = response.json()
             self._token = data.get('token')
-
-            # Update refresh token if a new one is provided
-            new_refresh_token = response.headers.get('x-lara-refresh-token')
-            if new_refresh_token:
-                self._refresh_token = new_refresh_token
+            self._refresh_token = response.headers.get('x-lara-refresh-token') or None
 
             if not self._token:
                 raise LaraApiError(500, "AuthenticationError", "Missing token in refresh response")
