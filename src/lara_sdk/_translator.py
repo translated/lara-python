@@ -780,14 +780,16 @@ class UseCache(Enum):
 
 class Translator:
     def __init__(self, credentials: Union[AccessKey, AuthToken, Credentials] = None, *,
-                 access_key_id: str = None, access_key_secret: str = None, server_url: str = None):
+                 access_key_id: str = None, access_key_secret: str = None, server_url: str = None,
+                 session_id: str = None):
         """
         Initialize the Translator with authentication.
 
-        :param auth: Authentication object (AccessKey, AuthToken, or deprecated Credentials)
+        :param credentials: Authentication object (AccessKey, AuthToken, or deprecated Credentials)
         :param access_key_id: (Deprecated) Use AccessKey(id, secret) instead
         :param access_key_secret: (Deprecated) Use AccessKey(id, secret) instead
         :param server_url: Optional custom server URL
+        :param session_id: Optional session id, sent on the access key authentication request
         """
         if credentials is None:
             if access_key_id is not None and access_key_secret is not None:
@@ -803,7 +805,7 @@ class Translator:
             else:
                 raise ValueError('auth parameter is required (AccessKey, AuthToken, or Credentials)')
 
-        self._client: LaraClient = LaraClient(credentials, server_url)
+        self._client: LaraClient = LaraClient(credentials, server_url=server_url, session_id=session_id)
         self.memories: Memories = Memories(self._client)
         self.documents: Documents = Documents(self._client)
         self.glossaries: Glossaries = Glossaries(self._client)

@@ -46,12 +46,13 @@ class LaraClient:
     This class is used to interact with Lara via the REST API with JWT authentication support.
     """
 
-    def __init__(self, auth: Union[AccessKey, AuthToken], server_url: str = None):
+    def __init__(self, auth: Union[AccessKey, AuthToken], server_url: str = None, session_id: str = None):
         """
         Initialize the Lara client with authentication.
 
         :param auth: Authentication method (AccessKey or AuthToken)
         :param server_url: Optional custom server URL (defaults to https://api.laratranslate.com)
+        :param session_id: Optional session id, sent on the access key authentication request
         """
         self.base_url: str = (server_url or 'https://api.laratranslate.com').strip().rstrip('/')
         self.sdk_name: str = 'lara-python'
@@ -59,6 +60,7 @@ class LaraClient:
 
         # Authentication state
         self._auth: Union[AccessKey, AuthToken] = auth
+        self._session_id: Optional[str] = session_id
         self._token: Optional[str] = None
         self._refresh_token: Optional[str] = None
 
@@ -307,6 +309,9 @@ class LaraClient:
             'X-Lara-SDK-Name': self.sdk_name,
             'X-Lara-SDK-Version': self.sdk_version
         }
+
+        if self._session_id is not None and self._session_id != '':
+            headers['X-Lara-Auth-Session-Id'] = self._session_id
 
         response = self.session.post(f'{self.base_url}{path}', headers=headers, data=body_string)
 
