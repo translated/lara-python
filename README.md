@@ -12,6 +12,7 @@ All major translation features are accessible, making it easy to integrate and c
 - **Document Translation**: Word, PDF, and other document formats with status monitoring
 - **Image Translation**: Translate whole images or extract and translate text blocks
 - **Audio Translation**: Audio file translation with status monitoring
+- **Audio Transcript Translation**: Retrieve translated transcripts with per-segment timings
 - **Translation Memory**: Store and reuse translations for consistency
 - **Glossaries**: Enforce terminology standards across translations
 - **Styleguides**: Define tone, voice, and writing style rules for translations
@@ -110,6 +111,17 @@ python image_translation.py
 ```bash
 cd examples
 python audio_translation.py
+```
+
+### Audio Transcript Translation
+- **[audio_transcript_translation.py](examples/audio_transcript_translation.py)** - Audio transcript translation examples
+  - Basic transcript translation
+  - Advanced options with memories and glossaries
+  - Step-by-step transcript translation with status monitoring
+
+```bash
+cd examples
+python audio_transcript_translation.py
 ```
 
 ### Translation Memory Management
@@ -347,6 +359,45 @@ status = lara.audio.status(audio.id)
 #### Download translated audio
 ```python
 audio_content = lara.audio.download(audio.id)
+```
+
+### 🎙️ Audio Transcript Translation
+#### Simple transcript translation
+```python
+result = lara.audio.translate_transcript(
+    file_path="/path/to/your/audio.mp3",  # Replace with actual file path
+    filename="audio.mp3",
+    source="en-US",
+    target="fr-FR"
+)
+
+# With options
+result = lara.audio.translate_transcript(
+    file_path="/path/to/your/audio.mp3",  # Replace with actual file path
+    filename="audio.mp3",
+    source="en-US",
+    target="fr-FR",
+    adapt_to=["mem_1A2b3C4d5E6f7G8h9I0jKl"],  # Replace with actual memory IDs
+    glossaries=["gls_1A2b3C4d5E6f7G8h9I0jKl"]  # Replace with actual glossary IDs
+)
+```
+### Transcript translation with status monitoring
+#### Upload for transcription
+```python
+audio = lara.audio.upload_for_transcription(
+    file_path="/path/to/your/audio.mp3",  # Replace with actual file path
+    filename="audio.mp3",
+    source="en-US",
+    target="fr-FR"
+)
+```
+#### Transcript status monitoring
+```python
+status = lara.audio.status(audio.id)
+```
+#### Retrieve translated transcript
+```python
+result = lara.audio.get_translated_transcript(audio.id)
 ```
 
 ### 🧠 Memory Management

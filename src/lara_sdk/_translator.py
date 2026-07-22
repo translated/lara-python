@@ -91,12 +91,12 @@ class Styleguide(LaraObject):
         self.updated_at: datetime = self._parse_date(kwargs.get('updated_at', None))
         self.is_personal: bool = kwargs.get('is_personal')
 
-@dataclass
-class DocumentOptions:
-    adapt_to: Optional[List[str]] = None
-    glossaries: Optional[List[str]] = None
-    no_trace: Optional[bool] = None
-    style: Optional[TranslationStyle] = None
+class DocumentOptions(LaraObject):
+    def __init__(self, **kwargs):
+        self.adapt_to: Optional[List[str]] = kwargs.get('adapt_to')
+        self.glossaries: Optional[List[str]] = kwargs.get('glossaries')
+        self.no_trace: Optional[bool] = kwargs.get('no_trace')
+        self.style: Optional[TranslationStyle] = kwargs.get('style')
 
 # Extraction parameters for DOCX files
 @dataclass
@@ -499,13 +499,13 @@ class VoiceGender(Enum):
     FEMALE = 'female'
 
 
-@dataclass
-class AudioOptions:
-    adapt_to: Optional[List[str]] = None
-    glossaries: Optional[List[str]] = None
-    no_trace: Optional[bool] = None
-    style: Optional[TranslationStyle] = None
-    voice_gender: Optional[VoiceGender] = None
+class AudioOptions(LaraObject):
+    def __init__(self, **kwargs):
+        self.adapt_to: Optional[List[str]] = kwargs.get('adapt_to')
+        self.glossaries: Optional[List[str]] = kwargs.get('glossaries')
+        self.no_trace: Optional[bool] = kwargs.get('no_trace')
+        self.style: Optional[TranslationStyle] = kwargs.get('style')
+        self.voice_gender: Optional[VoiceGender] = kwargs.get('voice_gender')
 
 
 class Audio(LaraObject):
@@ -602,6 +602,25 @@ class Documents:
             time.sleep(self._polling_interval)
         raise TimeoutError()
 
+class AudioTextSegment(LaraObject):
+    def __init__(self, **kwargs):
+        self.id: int = kwargs.get('id')
+        self.start: float = kwargs.get('start')
+        self.end: float = kwargs.get('end')
+        self.text: str = kwargs.get('text')
+        self.translation: str = kwargs.get('translation')
+
+class AudioTextResult(LaraObject):
+    def __init__(self, **kwargs):
+        self.id: str = kwargs.get('id')
+        self.source: str = kwargs.get('source')
+        self.target: str = kwargs.get('target')
+        self.filename: str = kwargs.get('filename')
+        self.duration: float = kwargs.get('duration')
+        self.text: str = kwargs.get('text')
+        self.translation: str = kwargs.get('translation')
+        self.segments: List[AudioTextSegment] = [AudioTextSegment(**s) for s in kwargs.get('segments', [])]
+
 class AudioTranslator:
     def __init__(self, client: LaraClient):
         self._client: LaraClient = client
@@ -668,6 +687,63 @@ class AudioTranslator:
 
             if audio.status == AudioStatus.TRANSLATED:
                 return self.download(id=audio.id)
+            elif audio.status == AudioStatus.ERROR:
+                raise LaraApiError(500, "AudioError", audio.error_reason)
+
+            time.sleep(self._polling_interval)
+        raise TimeoutError()
+
+    def upload_for_transcription(self, file_path: str, filename: str, target: str, source: Optional[str] = None,
+                                 adapt_to: Optional[List[str]] = None, glossaries: Optional[List[str]] = None,
+                                 no_trace: bool = False, style: Optional[TranslationStyle] = None) -> Audio:
+        with open(file_path, 'rb') as file_payload:
+            response_data = self._client.get('/v2/audio/upload-url', {'filename': filename})
+
+            url: str = response_data['url']
+            fields: S3UploadFields = S3UploadFields(**response_data['fields'])
+
+            self._s3client.upload(url, fields, file_payload)
+
+        body = {
+            's3key': fields['key'],
+            'target': target,
+        }
+        if source is not None:
+            body['source'] = source
+
+        if adapt_to is not None:
+            body['adapt_to'] = adapt_to
+
+        if glossaries is not None:
+            body['glossaries'] = glossaries
+
+        if style is not None:
+            body['style'] = style
+
+        headers = None
+        if no_trace is True:
+            headers = {'X-No-Trace': 'true'}
+
+        return Audio(**self._client.post('/v2/audio/translate-transcript', body, headers=headers))
+
+    def get_translated_transcript(self, id: str) -> AudioTextResult:
+        return AudioTextResult(**self._client.get(f'/v2/audio/{id}/translated-transcript'))
+
+    def translate_transcript(self, file_path: str, filename: str, target: str, source: Optional[str] = None,
+                             adapt_to: Optional[List[str]] = None, glossaries: Optional[List[str]] = None,
+                             no_trace: bool = False, style: Optional[TranslationStyle] = None) -> AudioTextResult:
+
+        audio = self.upload_for_transcription(file_path=file_path, filename=filename, target=target, source=source,
+                                              adapt_to=adapt_to, glossaries=glossaries, no_trace=no_trace, style=style)
+
+        max_wait_time = 60 * 15 # 15 minutes
+        start = time.time()
+
+        while time.time() - start < max_wait_time:
+            audio = self.status(id=audio.id)
+
+            if audio.status == AudioStatus.TRANSLATED:
+                return self.get_translated_transcript(id=audio.id)
             elif audio.status == AudioStatus.ERROR:
                 raise LaraApiError(500, "AudioError", audio.error_reason)
 
