@@ -505,7 +505,9 @@ class AudioOptions(LaraObject):
         self.glossaries: Optional[List[str]] = kwargs.get('glossaries')
         self.no_trace: Optional[bool] = kwargs.get('no_trace')
         self.style: Optional[TranslationStyle] = kwargs.get('style')
-        self.voice_gender: Optional[VoiceGender] = kwargs.get('voice_gender')
+        self.voice_cloning: Optional[bool] = kwargs.get('voice_cloning')
+        self.voice_gender: Optional[VoiceGender] = VoiceGender(kwargs.get('voice_gender')) \
+            if kwargs.get('voice_gender') else None
 
 
 class Audio(LaraObject):
@@ -630,7 +632,8 @@ class AudioTranslator:
     def upload(self, file_path: str, filename: str, target: str, source: Optional[str] = None,
                adapt_to: Optional[List[str]] = None, glossaries: Optional[List[str]] = None,
                no_trace: bool = False, style: Optional[TranslationStyle] = None,
-               voice_gender: Optional[VoiceGender] = None) -> Audio:
+               voice_gender: Optional[VoiceGender] = None,
+               voice_cloning: Optional[bool] = None) -> Audio:
         with open(file_path, 'rb') as file_payload:
             response_data = self._client.get('/v2/audio/upload-url', {'filename': filename})
 
@@ -654,6 +657,8 @@ class AudioTranslator:
 
         if style is not None:
             body['style'] = style
+        if voice_cloning is not None:
+            body['voice_cloning'] = voice_cloning
         if voice_gender is not None:
             body['voice_gender'] = voice_gender.value
 
@@ -673,11 +678,12 @@ class AudioTranslator:
     def translate(self, file_path: str, filename: str, target: str, source: Optional[str] = None,
                   adapt_to: Optional[List[str]] = None, glossaries: Optional[List[str]] = None,
                   no_trace: bool = False, style: Optional[TranslationStyle] = None,
-                  voice_gender: Optional[VoiceGender] = None) -> bytes:
+                  voice_gender: Optional[VoiceGender] = None,
+                  voice_cloning: Optional[bool] = None) -> bytes:
 
         audio = self.upload(file_path=file_path, filename=filename, target=target, source=source,
                             adapt_to=adapt_to, glossaries=glossaries, no_trace=no_trace, style=style,
-                            voice_gender=voice_gender)
+                            voice_gender=voice_gender, voice_cloning=voice_cloning)
 
         max_wait_time = 60 * 15 # 15 minutes
         start = time.time()
