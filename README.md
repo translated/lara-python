@@ -463,6 +463,14 @@ delete_job = lara.memories.delete_translation(
 
 # Wait for import completion
 completed_import = lara.memories.wait_for_import(memory_import, max_wait_time=300)  # 5 minutes
+
+# Share with the account or a group; shares can be renamed, listed, and revoked
+team_memory = lara.memories.add_account_share("mem_1A2b3C4d5E6f7G8h9I0jKl", "Team memory")
+lara.memories.rename_account_share(team_memory.id, "Company memory")
+lara.memories.add_group_share(team_memory.id, "grp_1A2b3C4d5E6f7G8h9I0jKl", "Marketing memory")
+shares = lara.memories.get_shares(team_memory.id)
+lara.memories.revoke_group_share(team_memory.id, "grp_1A2b3C4d5E6f7G8h9I0jKl")
+lara.memories.revoke_account_share(team_memory.id)
 ```
 
 ### 📚 Glossary Management
@@ -501,6 +509,11 @@ job_id = glossary_export.job_id
 
 # Get glossary terms count
 counts = lara.glossaries.counts("gls_1A2b3C4d5E6f7G8h9I0jKl")
+
+# Account and group sharing use the same add, rename, list, and revoke workflow
+lara.glossaries.add_account_share(glossary.id, "Team glossary")
+glossary_shares = lara.glossaries.get_shares(glossary.id)
+lara.glossaries.revoke_account_share(glossary.id)
 ```
 
 ### 📋 Styleguide Management
@@ -524,6 +537,10 @@ styleguide = lara.styleguides.update("stg_1A2b3C4d5E6f7G8h9I0jKl", content="Alwa
 
 # Update both
 styleguide = lara.styleguides.update("stg_1A2b3C4d5E6f7G8h9I0jKl", "UpdatedStyleguide", "Always use informal language.")
+
+# Share a styleguide and inspect all visible account, group, and user shares
+lara.styleguides.add_group_share(styleguide.id, "grp_1A2b3C4d5E6f7G8h9I0jKl", "Marketing styleguide")
+styleguide_shares = lara.styleguides.get_shares(styleguide.id)
 
 # Delete styleguide
 styleguide = lara.styleguides.delete("stg_1A2b3C4d5E6f7G8h9I0jKl")

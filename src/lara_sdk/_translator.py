@@ -18,6 +18,10 @@ ProfanitiesHandling = Literal["hide", "avoid", "detect"]
 GlossaryFileFormat = Literal["csv/table-uni", "csv/table-multi"]
 MemoryExportFormat = Literal["tmx", "jtm"]
 ImageTranslationModel = Literal["overlay", "inpainting", "generative", "generative_fast"]
+SharePermission = Literal["read", "read_write"]
+MemorySharePermission = SharePermission
+GlossarySharePermission = SharePermission
+StyleguideSharePermission = SharePermission
 
 # Objects --------------------------------------------------------------------------------------------------------------
 
@@ -33,7 +37,8 @@ class Memory(LaraObject):
         self.owner_id: str = kwargs.get('owner_id')
         self.collaborators_count: int = kwargs.get('collaborators_count')
         self.shared_at: datetime = self._parse_date(kwargs.get('shared_at'))
-        self.is_personal: bool = kwargs.get('is_personal')
+        # The API sends is_personal: true and omits the key otherwise; it never sends false or null.
+        self.is_personal: bool = bool(kwargs.get('is_personal'))
 
 
 class MemoryImport(LaraObject):
@@ -56,7 +61,9 @@ class Glossary(LaraObject):
         self.owner_id: str = kwargs.get('owner_id')
         self.created_at: datetime = self._parse_date(kwargs.get('created_at', None))
         self.updated_at: datetime = self._parse_date(kwargs.get('updated_at', None))
-        self.is_personal: bool = kwargs.get('is_personal')
+        self.shared_at: datetime = self._parse_date(kwargs.get('shared_at', None))
+        # The API sends is_personal: true and omits the key otherwise; it never sends false or null.
+        self.is_personal: bool = bool(kwargs.get('is_personal'))
 
 class GlossaryImport(LaraObject):
     def __init__(self, **kwargs):
@@ -89,7 +96,54 @@ class Styleguide(LaraObject):
         self.content: Optional[str] = kwargs.get('content', None)
         self.created_at: datetime = self._parse_date(kwargs.get('created_at', None))
         self.updated_at: datetime = self._parse_date(kwargs.get('updated_at', None))
-        self.is_personal: bool = kwargs.get('is_personal')
+        self.shared_at: datetime = self._parse_date(kwargs.get('shared_at', None))
+        # The API sends is_personal: true and omits the key otherwise; it never sends false or null.
+        self.is_personal: bool = bool(kwargs.get('is_personal'))
+
+
+class ResourceShareEntry(LaraObject):
+    def __init__(self, **kwargs):
+        self.id: str = kwargs.get('id')
+        self.name: str = kwargs.get('name')
+        self.share_name: str = kwargs.get('share_name')
+        self.shared_at: datetime = self._parse_date(kwargs.get('shared_at', None))
+        self.permissions: SharePermission = kwargs.get('permissions')
+
+
+class MemoryShareEntry(ResourceShareEntry):
+    pass
+
+
+class GlossaryShareEntry(ResourceShareEntry):
+    pass
+
+
+class StyleguideShareEntry(ResourceShareEntry):
+    pass
+
+
+class MemoryShares(LaraObject):
+    def __init__(self, **kwargs):
+        self.memory = Memory(**kwargs['memory'])
+        self.account = MemoryShareEntry(**kwargs['account']) if kwargs.get('account') else None
+        self.groups = [MemoryShareEntry(**entry) for entry in kwargs.get('groups', [])]
+        self.users = [MemoryShareEntry(**entry) for entry in kwargs.get('users', [])]
+
+
+class GlossaryShares(LaraObject):
+    def __init__(self, **kwargs):
+        self.glossary = Glossary(**kwargs['glossary'])
+        self.account = GlossaryShareEntry(**kwargs['account']) if kwargs.get('account') else None
+        self.groups = [GlossaryShareEntry(**entry) for entry in kwargs.get('groups', [])]
+        self.users = [GlossaryShareEntry(**entry) for entry in kwargs.get('users', [])]
+
+
+class StyleguideShares(LaraObject):
+    def __init__(self, **kwargs):
+        self.styleguide = Styleguide(**kwargs['styleguide'])
+        self.account = StyleguideShareEntry(**kwargs['account']) if kwargs.get('account') else None
+        self.groups = [StyleguideShareEntry(**entry) for entry in kwargs.get('groups', [])]
+        self.users = [StyleguideShareEntry(**entry) for entry in kwargs.get('users', [])]
 
 class DocumentOptions(LaraObject):
     def __init__(self, **kwargs):
@@ -298,6 +352,27 @@ class Memories:
             return results
         return results[0] if len(results) > 0 else None
 
+    def get_shares(self, id_: str) -> MemoryShares:
+        return MemoryShares(**self._client.get(f'/v2/memories/{id_}/shares'))
+
+    def add_account_share(self, id_: str, name: Optional[str] = None) -> Memory:
+        return Memory(**self._client.post(f'/v2/memories/{id_}/shares', {'name': name}))
+
+    def revoke_account_share(self, id_: str) -> Memory:
+        return Memory(**self._client.delete(f'/v2/memories/{id_}/shares'))
+
+    def rename_account_share(self, id_: str, name: str) -> Memory:
+        return Memory(**self._client.put(f'/v2/memories/{id_}/shares', {'name': name}))
+
+    def add_group_share(self, id_: str, group_id: str, name: Optional[str] = None) -> Memory:
+        return Memory(**self._client.post(f'/v2/memories/{id_}/shares/groups/{group_id}', {'name': name}))
+
+    def revoke_group_share(self, id_: str, group_id: str) -> Memory:
+        return Memory(**self._client.delete(f'/v2/memories/{id_}/shares/groups/{group_id}'))
+
+    def rename_group_share(self, id_: str, group_id: str, name: str) -> Memory:
+        return Memory(**self._client.put(f'/v2/memories/{id_}/shares/groups/{group_id}', {'name': name}))
+
     def import_tmx(self, id_: str, tmx: str, *, callback_url: Optional[str] = None,
                    gzip: bool = False) -> MemoryImport:
         with open(tmx, 'rb') as stream:
@@ -386,6 +461,27 @@ class Glossaries:
             'name': name
         }))
 
+    def get_shares(self, id_: str) -> GlossaryShares:
+        return GlossaryShares(**self._client.get(f'/v2/glossaries/{id_}/shares'))
+
+    def add_account_share(self, id_: str, name: Optional[str] = None) -> Glossary:
+        return Glossary(**self._client.post(f'/v2/glossaries/{id_}/shares', {'name': name}))
+
+    def revoke_account_share(self, id_: str) -> Glossary:
+        return Glossary(**self._client.delete(f'/v2/glossaries/{id_}/shares'))
+
+    def rename_account_share(self, id_: str, name: str) -> Glossary:
+        return Glossary(**self._client.put(f'/v2/glossaries/{id_}/shares', {'name': name}))
+
+    def add_group_share(self, id_: str, group_id: str, name: Optional[str] = None) -> Glossary:
+        return Glossary(**self._client.post(f'/v2/glossaries/{id_}/shares/groups/{group_id}', {'name': name}))
+
+    def revoke_group_share(self, id_: str, group_id: str) -> Glossary:
+        return Glossary(**self._client.delete(f'/v2/glossaries/{id_}/shares/groups/{group_id}'))
+
+    def rename_group_share(self, id_: str, group_id: str, name: str) -> Glossary:
+        return Glossary(**self._client.put(f'/v2/glossaries/{id_}/shares/groups/{group_id}', {'name': name}))
+
     def import_csv(self, id_: str, csv: str,
                    content_type: GlossaryFileFormat = "csv/table-uni",
                    *, callback_url: Optional[str] = None, gzip: bool = False) -> GlossaryImport:
@@ -472,6 +568,27 @@ class Styleguides:
         if content is not None:
             body['content'] = content
         return Styleguide(**self._client.put(f'/v2/styleguides/{id_}', body))
+
+    def get_shares(self, id_: str) -> StyleguideShares:
+        return StyleguideShares(**self._client.get(f'/v2/styleguides/{id_}/shares'))
+
+    def add_account_share(self, id_: str, name: Optional[str] = None) -> Styleguide:
+        return Styleguide(**self._client.post(f'/v2/styleguides/{id_}/shares', {'name': name}))
+
+    def revoke_account_share(self, id_: str) -> Styleguide:
+        return Styleguide(**self._client.delete(f'/v2/styleguides/{id_}/shares'))
+
+    def rename_account_share(self, id_: str, name: str) -> Styleguide:
+        return Styleguide(**self._client.put(f'/v2/styleguides/{id_}/shares', {'name': name}))
+
+    def add_group_share(self, id_: str, group_id: str, name: Optional[str] = None) -> Styleguide:
+        return Styleguide(**self._client.post(f'/v2/styleguides/{id_}/shares/groups/{group_id}', {'name': name}))
+
+    def revoke_group_share(self, id_: str, group_id: str) -> Styleguide:
+        return Styleguide(**self._client.delete(f'/v2/styleguides/{id_}/shares/groups/{group_id}'))
+
+    def rename_group_share(self, id_: str, group_id: str, name: str) -> Styleguide:
+        return Styleguide(**self._client.put(f'/v2/styleguides/{id_}/shares/groups/{group_id}', {'name': name}))
 
 
 class DocumentStatus(Enum):

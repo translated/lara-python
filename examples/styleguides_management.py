@@ -8,6 +8,7 @@ This example demonstrates:
 - Create, list, get, update, delete styleguides
 - Update name, content, or both at once
 - Handling of non-existent styleguides
+- Sharing a styleguide with the account or a group (add, rename, list, revoke)
 """
 
 def main():
@@ -74,6 +75,50 @@ def main():
         except Exception as e:
             print(f"Error getting styleguide: {e}\n")
         print()
+
+        # Example 5: Styleguide sharing
+        # Sharing requires a multi-user account and the appropriate role (account owner for
+        # account-wide shares, owner/admin for group shares). Each call returns the shared
+        # styleguide, whose `name` reflects the shared copy's name and `shared_at` the share time.
+        print("=== Styleguide Sharing ===")
+        try:
+            # Share with the whole account/team (the optional second argument names the shared copy)
+            team_share = lara.styleguides.add_account_share(styleguide_id, "Shared with the team")
+            print(f"🤝 Shared with the account as: '{team_share.name}' (shared at {team_share.shared_at})")
+
+            # Rename the account/team share
+            renamed_team_share = lara.styleguides.rename_account_share(styleguide_id, "Team styleguide")
+            print(f"📝 Renamed account share to: '{renamed_team_share.name}'")
+
+            # List every share visible to the caller: the account share, group shares and user shares
+            shares = lara.styleguides.get_shares(styleguide_id)
+            if shares.account:
+                print(f"👥 Account share '{shares.account.share_name}' ({shares.account.permissions})")
+            for group in shares.groups:
+                print(f"👥 Group {group.name}: '{group.share_name}' ({group.permissions})")
+            for user in shares.users:
+                print(f"👤 User {user.name}: '{user.share_name}' ({user.permissions})")
+
+            # Revoke the account/team share
+            lara.styleguides.revoke_account_share(styleguide_id)
+            print("🚫 Revoked the account share")
+
+            # Group shares work the same way, addressed by a group ID (grp_...)
+            group_id = os.getenv("LARA_GROUP_ID")  # Replace with an actual group ID
+            if group_id:
+                group_share = lara.styleguides.add_group_share(styleguide_id, group_id, "Shared with the group")
+                print(f"🤝 Shared with group {group_id} as: '{group_share.name}'")
+
+                lara.styleguides.rename_group_share(styleguide_id, group_id, "Marketing group")
+                print("📝 Renamed the group share")
+
+                lara.styleguides.revoke_group_share(styleguide_id, group_id)
+                print("🚫 Revoked the group share")
+            else:
+                print("Set LARA_GROUP_ID to try the group sharing methods.")
+            print()
+        except Exception as e:
+            print(f"Error sharing styleguide: {e}\n")
 
     except Exception as e:
         print(f"Error creating styleguide: {e}\n")
