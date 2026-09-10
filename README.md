@@ -479,11 +479,15 @@ lara.memories.revoke_account_share(team_memory.id)
 # Create glossary
 glossary = lara.glossaries.create("MyGlossary")
 
-# Import CSV from file
-glossary_import = lara.glossaries.import_csv("gls_1A2b3C4d5E6f7G8h9I0jKl", "/path/to/your/glossary.csv")  # Replace with actual CSV file path
+# Import a glossary file (use content_type="tbx" for TBX files)
+glossary_import = lara.glossaries.import_file("gls_1A2b3C4d5E6f7G8h9I0jKl", "/path/to/your/glossary.csv")
+
+# All options are keyword-only. Defaults: content_type="csv/table-uni", gzip=False.
+# gzip describes an already compressed file; it does not compress the input.
+# lara.glossaries.import_file(glossary.id, "/path/to/glossary.tbx", content_type="tbx")
 
 # Import CSV with a callback URL (async notification when the import completes)
-glossary_import = lara.glossaries.import_csv(
+glossary_import = lara.glossaries.import_file(
     "gls_1A2b3C4d5E6f7G8h9I0jKl",
     "/path/to/your/glossary.csv",
     callback_url="https://your-server.example.com/lara/import-callback"

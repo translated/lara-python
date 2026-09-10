@@ -15,7 +15,7 @@ from ._s3client import S3Client, S3UploadFields
 TranslationStyle = Literal["faithful", "fluid", "creative"]
 ProfanitiesDetect = Literal["target", "source_target"]
 ProfanitiesHandling = Literal["hide", "avoid", "detect"]
-GlossaryFileFormat = Literal["csv/table-uni", "csv/table-multi"]
+GlossaryFileFormat = Literal["csv/table-uni", "csv/table-multi", "tbx"]
 MemoryExportFormat = Literal["tmx", "jtm"]
 ImageTranslationModel = Literal["overlay", "inpainting", "generative", "generative_fast"]
 SharePermission = Literal["read", "read_write"]
@@ -482,16 +482,34 @@ class Glossaries:
     def rename_group_share(self, id_: str, group_id: str, name: str) -> Glossary:
         return Glossary(**self._client.put(f'/v2/glossaries/{id_}/shares/groups/{group_id}', {'name': name}))
 
-    def import_csv(self, id_: str, csv: str,
-                   content_type: GlossaryFileFormat = "csv/table-uni",
-                   *, callback_url: Optional[str] = None, gzip: bool = False) -> GlossaryImport:
-        with open(csv, 'rb') as stream:
+    def import_file(self, id_: str, file_path: str, *,
+                    content_type: GlossaryFileFormat = "csv/table-uni",
+                    callback_url: Optional[str] = None, gzip: bool = False) -> GlossaryImport:
+        """Import a glossary file with keyword-only options; gzip marks an already compressed file."""
+        with open(file_path, 'rb') as stream:
             body = {'content_type': content_type}
             if gzip:
                 body['compression'] = 'gzip'
             if callback_url is not None:
                 body['callback_url'] = callback_url
             return GlossaryImport(**self._client.post(f'/v2/glossaries/{id_}/import', body, {'csv': stream}))
+
+    def import_csv(self, id_: str, csv: str,
+                   content_type: Literal["csv/table-uni", "csv/table-multi"] = "csv/table-uni",
+                   *, callback_url: Optional[str] = None, gzip: bool = False) -> GlossaryImport:
+        """
+        .. deprecated:: 1.13.1
+            Use `import_file` instead.
+        """
+        import warnings
+        warnings.warn(
+            "import_csv is deprecated; use import_file instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        if content_type not in ("csv/table-uni", "csv/table-multi"):
+            raise ValueError("import_csv only supports CSV formats; use import_file for TBX files.")
+        return self.import_file(id_, csv, content_type=content_type, callback_url=callback_url, gzip=gzip)
 
     def get_import_status(self, id_: str) -> GlossaryImport:
         return GlossaryImport(**self._client.get(f'/v2/glossaries/imports/{id_}'))

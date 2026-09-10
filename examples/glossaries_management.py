@@ -69,7 +69,7 @@ def main():
         
         if os.path.exists(csv_file_path):
             print(f"Importing CSV file: {os.path.basename(csv_file_path)}")
-            csv_import = lara.glossaries.import_csv(glossary_id, csv_file_path)
+            csv_import = lara.glossaries.import_file(glossary_id, csv_file_path)
             print(f"Import started with ID: {csv_import.id}")
             print(f"Initial progress: {round(csv_import.progress * 100)}%")
             
@@ -94,7 +94,7 @@ def main():
         if os.path.exists(csv_file_path):
             try:
                 callback_url = "https://your-server.example.com/lara/import-callback"  # Replace with your endpoint
-                import_with_callback = lara.glossaries.import_csv(glossary_id, csv_file_path, callback_url=callback_url)
+                import_with_callback = lara.glossaries.import_file(glossary_id, csv_file_path, callback_url=callback_url)
                 print(f"Import started with ID: {import_with_callback.id} (callback: {callback_url})")
                 print()
             except Exception as e:
@@ -256,4 +256,4 @@ def main():
     print("\n🎉 Glossary management examples completed!")
 
 if __name__ == "__main__":
-    main() 
+    main()

@@ -183,7 +183,8 @@ class LaraClient:
         if 200 <= response.status_code < 300:
             if response.status_code == 204:
                 return None
-            if "text/csv" in response.headers.get('Content-Type', '') or "image/" in response.headers.get('Content-Type', ''):
+            content_type = response.headers.get('Content-Type', '')
+            if "text/csv" in content_type or "application/xml" in content_type or "image/" in content_type:
                 return response.content
             try:
                 return response.json()
