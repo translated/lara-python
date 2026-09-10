@@ -131,8 +131,6 @@ def main():
                 )
                 print(f"Import started with ID: {tmx_import_with_callback.id} (callback: {callback_url})")
 
-                # You can also combine gzip + callback_url:
-                # lara.memories.import_tmx(memory_id, tmx_file_path, gzip=True, callback_url=callback_url)
                 print()
             except Exception as e:
                 print(f"Error starting TMX import with callback: {e}\n")

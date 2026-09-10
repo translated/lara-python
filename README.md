@@ -425,25 +425,10 @@ memory_import = lara.memories.add_translation(
 # TMX import from file
 memory_import = lara.memories.import_tmx("mem_1A2b3C4d5E6f7G8h9I0jKl", "/path/to/your/memory.tmx")  # Replace with actual TMX file path
 
-# TMX import with gzip compression
-memory_import = lara.memories.import_tmx(
-    "mem_1A2b3C4d5E6f7G8h9I0jKl",
-    "/path/to/your/memory.tmx",
-    gzip=True
-)
-
 # TMX import with a callback URL (notified when the import completes)
 memory_import = lara.memories.import_tmx(
     "mem_1A2b3C4d5E6f7G8h9I0jKl",
     "/path/to/your/memory.tmx",
-    callback_url="https://your-server.example.com/lara/import-callback"
-)
-
-# TMX import with both gzip compression and a callback URL
-memory_import = lara.memories.import_tmx(
-    "mem_1A2b3C4d5E6f7G8h9I0jKl",
-    "/path/to/your/memory.tmx",
-    gzip=True,
     callback_url="https://your-server.example.com/lara/import-callback"
 )
 
@@ -482,8 +467,7 @@ glossary = lara.glossaries.create("MyGlossary")
 # Import a glossary file (use content_type="tbx" for TBX files)
 glossary_import = lara.glossaries.import_file("gls_1A2b3C4d5E6f7G8h9I0jKl", "/path/to/your/glossary.csv")
 
-# All options are keyword-only. Defaults: content_type="csv/table-uni", gzip=False.
-# gzip describes an already compressed file; it does not compress the input.
+# All options are keyword-only. The default content_type is "csv/table-uni".
 # lara.glossaries.import_file(glossary.id, "/path/to/glossary.tbx", content_type="tbx")
 
 # Import CSV with a callback URL (async notification when the import completes)
