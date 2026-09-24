@@ -145,6 +145,33 @@ class LaraClient:
         except Exception:
             return True
 
+    @staticmethod
+    def _file_positions(files: Optional[Dict]):
+        positions = []
+        for value in (files or {}).values():
+            payload = value[1] if isinstance(value, (tuple, list)) else value
+            if hasattr(payload, 'read'):
+                try:
+                    position = payload.tell()
+                except (AttributeError, OSError):
+                    position = None
+                positions.append((payload, position))
+        return positions
+
+    @staticmethod
+    def _rewind_files(positions):
+        for payload, position in positions:
+            if position is None:
+                raise requests.exceptions.UnrewindableBodyError(
+                    'Cannot retry an upload whose original file position is unknown'
+                )
+            try:
+                payload.seek(position)
+            except (AttributeError, OSError) as error:
+                raise requests.exceptions.UnrewindableBodyError(
+                    'Cannot rewind an uploaded file for retry'
+                ) from error
+
     def _request(self, method: str, path: str, body: Dict = None, files: Dict = None, headers: Dict = None,
                  retry_count: int = 0) -> Optional[Union[Dict, List, bytes]]:
         """
@@ -172,6 +199,7 @@ class LaraClient:
         if body is not None:
             body = {k: v for k, v in body.items() if v is not None}
 
+        file_positions = self._file_positions(files)
         if files is not None:
             response = self.session.request(method, f'{self.base_url}{path}', headers=_headers, data=body, files=files)
         elif method == 'GET':
@@ -193,6 +221,8 @@ class LaraClient:
 
         # Handle 401 - token expired, refresh and retry once
         if response.status_code == 401 and retry_count < 1:
+            response.close()
+            self._rewind_files(file_positions)
             self._token = None
             self._refresh_or_reauthenticate()
             return self._request(method, path, body, files, headers, retry_count=retry_count + 1)
@@ -222,6 +252,7 @@ class LaraClient:
         if body is not None:
             body = {k: v for k, v in body.items() if v is not None}
 
+        file_positions = self._file_positions(files)
         if files is not None:
             response = self.session.request(method, f'{self.base_url}{path}', headers=_headers, data=body, files=files, stream=True)
         else:
@@ -230,6 +261,8 @@ class LaraClient:
         if not (200 <= response.status_code < 300):
             # Handle 401 - token expired, refresh and retry once
             if response.status_code == 401 and retry_count < 1:
+                response.close()
+                self._rewind_files(file_positions)
                 self._token = None
                 self._refresh_or_reauthenticate()
                 yield from self._request_stream(method, path, body, files, headers, retry_count=retry_count + 1)

@@ -1,4 +1,4 @@
-from lara_sdk import AccessKey, Translator
+from lara_sdk import AccessKey, ImageParagraph, Translator
 import os
 
 """
@@ -7,6 +7,7 @@ Complete image translation examples for the Lara Python SDK
 This example demonstrates:
 - Basic image translation (full image with text overlay/inpainting)
 - Image text-only translation (extract and translate text without rendering)
+- Editing and rendering translated text with classic and generative models
 - Translation with different styles
 - Advanced options with memories and glossaries
 """
@@ -64,12 +65,13 @@ def main():
         print(f"Translated image saved to: {output_path2}")
         print("Translation: en-US -> de-DE (inpainting mode)\n")
 
-        # Example 3: Image text-only translation (no image rendering)
-        print("=== Image Text-Only Translation ===")
+        # Example 3: Extract text with layout, edit it, and render it
+        print("=== Extract, Edit, and Render Translations ===")
         text_results = lara.images.translate_text(
             source="en-US",
             target="es-ES",
-            image_path=sample_image_path
+            image_path=sample_image_path,
+            include_layout=True
         )
 
         print(f"Original image: {os.path.basename(sample_image_path)}")
@@ -79,6 +81,34 @@ def main():
             print(f"    Original: {result.text}")
             print(f"    Translated: {result.translation}")
         print()
+
+        if text_results.paragraphs:
+            text_results.paragraphs[0].translation = "¡Hola mundo!"
+
+            # include_layout=True guarantees the metadata classic models require.
+            classic_image = lara.images.render_translated(
+                image_path=sample_image_path,
+                source=text_results.source_language,
+                target="es-ES",
+                paragraphs=text_results.paragraphs,
+                model="overlay"
+            )
+            with open("sample_image_edited_overlay_es.png", 'wb') as f:
+                f.write(classic_image)
+
+            # Generative models accept text-only paragraphs. Omitting model uses generative_fast.
+            text_only_paragraphs = [
+                ImageParagraph(text=p.text, translation=p.translation)
+                for p in text_results.paragraphs
+            ]
+            generative_image = lara.images.render_translated(
+                image_path=sample_image_path,
+                source=None,
+                target="es-ES",
+                paragraphs=text_only_paragraphs
+            )
+            with open("sample_image_edited_generative_es.png", 'wb') as f:
+                f.write(generative_image)
 
         # Example 4: Image translation with style parameter
         print("=== Image Translation with Style ===")

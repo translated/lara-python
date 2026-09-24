@@ -5,7 +5,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Callable, Dict, Iterable, List, Literal, Optional, Union
+from typing import (Callable, Dict, Generic, Iterable, List, Literal, Optional,
+                    Sequence, Tuple, TypeVar, Union, cast, overload)
 
 from ._client import LaraClient, LaraObject
 from ._credentials import AccessKey, AuthToken, Credentials
@@ -17,7 +18,11 @@ ProfanitiesDetect = Literal["target", "source_target"]
 ProfanitiesHandling = Literal["hide", "avoid", "detect"]
 GlossaryFileFormat = Literal["csv/table-uni", "csv/table-multi", "tbx"]
 MemoryExportFormat = Literal["tmx", "jtm"]
-ImageTranslationModel = Literal["overlay", "inpainting", "generative", "generative_fast"]
+ImageClassicModel = Literal["overlay", "inpainting"]
+ImageGenerativeModel = Literal["generative", "generative_fast"]
+ImageTranslationModel = Union[ImageClassicModel, ImageGenerativeModel]
+ImageTextDirection = Literal["ltr", "rtl", "ttb"]
+ImageTextAlignment = Literal["left", "center", "right"]
 SharePermission = Literal["read", "read_write"]
 MemorySharePermission = SharePermission
 GlossarySharePermission = SharePermission
@@ -891,19 +896,135 @@ class AudioTranslator:
             time.sleep(self._polling_interval)
         raise TimeoutError()
 
-class ImageParagraph(LaraObject):
-    def __init__(self, **kwargs):
-        self.text: str = kwargs.get('text')
-        self.translation: str = kwargs.get('translation')
-        self.adapted_to_matches: Optional[List[NGMemoryMatch]] = [NGMemoryMatch(**m) for m in kwargs.get('adapted_to_matches', [])] if kwargs.get('adapted_to_matches') is not None else None
-        self.glossaries_matches: Optional[List[NGGlossaryMatch]] = [NGGlossaryMatch(**m) for m in kwargs.get('glossaries_matches', [])] if kwargs.get('glossaries_matches') is not None else None
+class ImageBBox(LaraObject):
+    """A quadrilateral whose corners are integer ``(x, y)`` coordinate pairs."""
 
-class ImageTextResult(LaraObject):
-    def __init__(self, **kwargs):
-        self.source_language: str = kwargs.get('source_language')
-        self.adapted_to: Optional[List[str]] = kwargs.get('adapted_to', None)
-        self.glossaries: Optional[List[str]] = kwargs.get('glossaries', None)
-        self.paragraphs: List[ImageParagraph] = [ImageParagraph(**p) for p in kwargs.get('paragraphs', [])]
+    def __init__(self, top_left: Sequence[int], top_right: Sequence[int],
+                 bottom_right: Sequence[int], bottom_left: Sequence[int]):
+        self.top_left: Tuple[int, int] = (top_left[0], top_left[1])
+        self.top_right: Tuple[int, int] = (top_right[0], top_right[1])
+        self.bottom_right: Tuple[int, int] = (bottom_right[0], bottom_right[1])
+        self.bottom_left: Tuple[int, int] = (bottom_left[0], bottom_left[1])
+
+    def _to_api_dict(self) -> Dict[str, Tuple[int, int]]:
+        return {
+            'top_left': self.top_left,
+            'top_right': self.top_right,
+            'bottom_right': self.bottom_right,
+            'bottom_left': self.bottom_left,
+        }
+
+
+class ImageTextInfo(LaraObject):
+    """Text direction and colors used to render an image paragraph."""
+
+    def __init__(self, direction: ImageTextDirection, text_color: str,
+                 background_color: str):
+        self.direction: ImageTextDirection = direction
+        self.text_color: str = text_color
+        self.background_color: str = background_color
+
+    def _to_api_dict(self) -> Dict[str, str]:
+        return {
+            'direction': self.direction,
+            'text_color': self.text_color,
+            'background_color': self.background_color,
+        }
+
+
+class ImageParagraph(LaraObject):
+    """Translated image text with optional memory and glossary matches."""
+
+    def __init__(self, text: str = None, translation: str = None,
+                 adapted_to_matches: Optional[List[Union[NGMemoryMatch, Dict]]] = None,
+                 glossaries_matches: Optional[List[Union[NGGlossaryMatch, Dict]]] = None,
+                 **kwargs):
+        self.text: str = text
+        self.translation: str = translation
+        self.adapted_to_matches: Optional[List[NGMemoryMatch]] = (
+            [match if isinstance(match, NGMemoryMatch) else NGMemoryMatch(**match)
+             for match in adapted_to_matches]
+            if adapted_to_matches is not None else None
+        )
+        self.glossaries_matches: Optional[List[NGGlossaryMatch]] = (
+            [match if isinstance(match, NGGlossaryMatch) else NGGlossaryMatch(**match)
+             for match in glossaries_matches]
+            if glossaries_matches is not None else None
+        )
+
+    def _to_render_dict(self) -> Dict[str, object]:
+        return {'text': self.text, 'translation': self.translation}
+
+
+class ImageLayoutParagraph(ImageParagraph):
+    """Translated image text with the complete metadata required for classic rendering."""
+
+    def __init__(self, text: str, translation: str,
+                 bbox: Union[ImageBBox, Dict],
+                 lines_bboxes: Sequence[Union[ImageBBox, Dict]],
+                 text_info: Union[ImageTextInfo, Dict],
+                 alignment: ImageTextAlignment,
+                 adapted_to_matches: Optional[List[Union[NGMemoryMatch, Dict]]] = None,
+                 glossaries_matches: Optional[List[Union[NGGlossaryMatch, Dict]]] = None):
+        super().__init__(text, translation, adapted_to_matches, glossaries_matches)
+        self.bbox: ImageBBox = bbox if isinstance(bbox, ImageBBox) else ImageBBox(**bbox)
+        self.lines_bboxes: List[ImageBBox] = [
+            value if isinstance(value, ImageBBox) else ImageBBox(**value)
+            for value in lines_bboxes
+        ]
+        self.text_info: ImageTextInfo = (
+            text_info if isinstance(text_info, ImageTextInfo) else ImageTextInfo(**text_info)
+        )
+        self.alignment: ImageTextAlignment = alignment
+
+    def _to_render_dict(self) -> Dict[str, object]:
+        return {
+            **super()._to_render_dict(),
+            'bbox': self.bbox._to_api_dict(),
+            'lines_bboxes': [bbox._to_api_dict() for bbox in self.lines_bboxes],
+            'text_info': self.text_info._to_api_dict(),
+            'alignment': self.alignment,
+        }
+
+
+_ImageParagraphT = TypeVar('_ImageParagraphT', bound=ImageParagraph)
+
+
+class ImageTextResult(LaraObject, Generic[_ImageParagraphT]):
+    def __init__(self, source_language: str = None,
+                 paragraphs: Sequence[Dict] = (),
+                 adapted_to: Optional[List[str]] = None,
+                 glossaries: Optional[List[str]] = None,
+                 **kwargs):
+        self.source_language: str = source_language
+        self.adapted_to: Optional[List[str]] = adapted_to
+        self.glossaries: Optional[List[str]] = glossaries
+        # The translate_text overloads select the paragraph type guaranteed by
+        # the API's include_layout option; parsing preserves the response data.
+        self.paragraphs: List[_ImageParagraphT] = cast(List[_ImageParagraphT], [
+            self._parse_paragraph(paragraph) for paragraph in paragraphs
+        ])
+
+    @staticmethod
+    def _parse_paragraph(paragraph: Dict) -> ImageParagraph:
+        layout_fields = ('bbox', 'lines_bboxes', 'text_info', 'alignment')
+        if all(paragraph.get(field) is not None for field in layout_fields):
+            return ImageLayoutParagraph(
+                text=paragraph.get('text'),
+                translation=paragraph.get('translation'),
+                bbox=paragraph.get('bbox'),
+                lines_bboxes=paragraph.get('lines_bboxes'),
+                text_info=paragraph.get('text_info'),
+                alignment=paragraph.get('alignment'),
+                adapted_to_matches=paragraph.get('adapted_to_matches'),
+                glossaries_matches=paragraph.get('glossaries_matches'),
+            )
+        return ImageParagraph(
+            text=paragraph.get('text'),
+            translation=paragraph.get('translation'),
+            adapted_to_matches=paragraph.get('adapted_to_matches'),
+            glossaries_matches=paragraph.get('glossaries_matches'),
+        )
 
 class ImageTranslator:
     def __init__(self, client: LaraClient):
@@ -952,9 +1073,42 @@ class ImageTranslator:
 
             return self._client.post('/v2/images/translate', body=data, files=files, headers=headers)
 
+    @overload
     def translate_text(self, image_path: str, target: str, source: Optional[str] = None, *,
-                  adapt_to: Optional[List[str]] = None, glossaries: Optional[List[str]] = None,
-                  no_trace: bool = False, style: Optional[TranslationStyle] = None, verbose: Optional[bool] = False) -> ImageTextResult:
+                       adapt_to: Optional[List[str]] = None, glossaries: Optional[List[str]] = None,
+                       no_trace: bool = False, style: Optional[TranslationStyle] = None,
+                       verbose: Optional[bool] = False,
+                       include_layout: Literal[True]) -> ImageTextResult[ImageLayoutParagraph]:
+        ...
+
+    @overload
+    def translate_text(self, image_path: str, target: str, source: Optional[str] = None, *,
+                       adapt_to: Optional[List[str]] = None, glossaries: Optional[List[str]] = None,
+                       no_trace: bool = False, style: Optional[TranslationStyle] = None,
+                       verbose: Optional[bool] = False,
+                       include_layout: Literal[False] = False) -> ImageTextResult[ImageParagraph]:
+        ...
+
+    @overload
+    def translate_text(self, image_path: str, target: str, source: Optional[str] = None, *,
+                       adapt_to: Optional[List[str]] = None, glossaries: Optional[List[str]] = None,
+                       no_trace: bool = False, style: Optional[TranslationStyle] = None,
+                       verbose: Optional[bool] = False,
+                       include_layout: bool) -> Union[ImageTextResult[ImageLayoutParagraph],
+                                                     ImageTextResult[ImageParagraph]]:
+        ...
+
+    def translate_text(self, image_path: str, target: str, source: Optional[str] = None, *,
+                       adapt_to: Optional[List[str]] = None, glossaries: Optional[List[str]] = None,
+                       no_trace: bool = False, style: Optional[TranslationStyle] = None,
+                       verbose: Optional[bool] = False,
+                       include_layout: bool = False) -> Union[ImageTextResult[ImageLayoutParagraph],
+                                                             ImageTextResult[ImageParagraph]]:
+        """Extract and translate image text.
+
+        With ``include_layout=True``, paragraphs are :class:`ImageLayoutParagraph`
+        values that can be passed directly to classic rendering models.
+        """
 
         with open(image_path, 'rb') as file_payload:
             mime_type, _ = mimetypes.guess_type(image_path)
@@ -976,12 +1130,65 @@ class ImageTranslator:
                 data['style'] = style
             if verbose:
                 data['verbose'] = json.dumps(verbose)
+            if include_layout:
+                data['include_layout'] = json.dumps(include_layout)
 
             headers = {}
             if no_trace is True:
                 headers['X-No-Trace'] = 'true'
             files = {'image': (filename, image_data, mime_type)}
-            return ImageTextResult(**self._client.post('/v2/images/translate-text', body=data, files=files, headers=headers))
+            response = self._client.post(
+                '/v2/images/translate-text', body=data, files=files, headers=headers
+            )
+            return ImageTextResult(**response)
+
+    @overload
+    def render_translated(self, image_path: str, target: str,
+                          paragraphs: Sequence[ImageLayoutParagraph], source: Optional[str] = None, *,
+                          model: Optional[ImageTranslationModel] = None,
+                          no_trace: bool = False) -> bytes:
+        ...
+
+    @overload
+    def render_translated(self, image_path: str, target: str,
+                          paragraphs: Sequence[ImageParagraph], source: Optional[str] = None, *,
+                          model: Optional[ImageGenerativeModel] = None,
+                          no_trace: bool = False) -> bytes:
+        ...
+
+    def render_translated(self, image_path: str, target: str,
+                          paragraphs: Sequence[ImageParagraph], source: Optional[str] = None, *,
+                          model: Optional[ImageTranslationModel] = None,
+                          no_trace: bool = False) -> bytes:
+        """Render supplied translations onto an image without translating them again.
+
+        ``overlay`` and ``inpainting`` require :class:`ImageLayoutParagraph`
+        values. Generative models, including the default ``generative_fast``,
+        also accept text-only :class:`ImageParagraph` values.
+        """
+        with open(image_path, 'rb') as file_payload:
+            mime_type, _ = mimetypes.guess_type(image_path)
+            if mime_type is None:
+                raise ValueError(f'Could not determine MIME type for file: {image_path}')
+
+            data = {
+                'target': target,
+                # Select rendering fields so verbose translation matches are not sent to the API.
+                'paragraphs': json.dumps([paragraph._to_render_dict() for paragraph in paragraphs]),
+            }
+            if source is not None:
+                data['source'] = source
+            if model is not None:
+                data['model'] = model
+
+            headers = {}
+            if no_trace is True:
+                headers['X-No-Trace'] = 'true'
+
+            files = {'image': (Path(image_path).name, file_payload, mime_type)}
+            return self._client.post(
+                '/v2/images/render-translated', body=data, files=files, headers=headers
+            )
 
 
 class TranslatePriority(Enum):

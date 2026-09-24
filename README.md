@@ -95,6 +95,7 @@ python document_translation.py
 - **[image_translation.py](examples/image_translation.py)** - Image translation examples
   - Full image translation with overlay or inpainting
   - Text-only extraction and translation
+  - Editing and rendering supplied translations
   - Style, memories, and glossaries options
 
 ```bash
@@ -314,10 +315,49 @@ translated_image = lara.images.translate(
 ```python
 text_results = lara.images.translate_text(
   source="en-US",
-  target="es-ES",
-  image_path="/path/to/your/image.png"  # Replace with actual file path
+  target="it-IT",
+  image_path="/path/to/your/image.png",  # Replace with actual file path
+  include_layout=True
 )
 ```
+
+When `include_layout=True`, the result is typed as
+`ImageTextResult[ImageLayoutParagraph]`, and every paragraph includes the layout
+required by classic rendering models. Pass the paragraphs directly to the renderer:
+
+```python
+from lara_sdk import ImageParagraph
+
+# Edit the translation while retaining the layout returned by translate_text.
+text_results.paragraphs[0].translation = "Ciao mondo!"
+
+rendered_image = lara.images.render_translated(
+    image_path="/path/to/your/image.png",
+    source=text_results.source_language,
+    target="it-IT",
+    paragraphs=text_results.paragraphs,
+    model="overlay",
+)
+
+# Generative models accept text-only paragraphs. When model is omitted, the
+# API uses generative_fast.
+text_only_paragraphs = [
+    ImageParagraph(text=p.text, translation=p.translation)
+    for p in text_results.paragraphs
+]
+rendered_image = lara.images.render_translated(
+    image_path="/path/to/your/image.png",
+    source=None,
+    target="it-IT",
+    paragraphs=text_only_paragraphs,
+)
+```
+
+`render_translated` renders supplied translations without translating them again. `overlay` and
+`inpainting` require every paragraph to be an `ImageLayoutParagraph`, containing `bbox`,
+`lines_bboxes`, `text_info`, and `alignment`. `generative`, `generative_fast`, and the omitted-model
+default accept either `ImageParagraph` or `ImageLayoutParagraph`. The overloads express these
+model-dependent requirements to Python type checkers. Set `no_trace=True` to disable request tracing.
 
 ### 🎵 Audio Translation
 #### Simple audio translation
