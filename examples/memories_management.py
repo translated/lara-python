@@ -187,11 +187,11 @@ def main():
             # List every share visible to the caller: the account share, group shares and user shares
             shares = lara.memories.get_shares(memory_id)
             if shares.account:
-                print(f"👥 Account share '{shares.account.share_name}' ({shares.account.permissions})")
+                print(f"👥 Account share '{shares.account.share_name}' ({shares.account.permission_mask})")
             for group in shares.groups:
-                print(f"👥 Group {group.name}: '{group.share_name}' ({group.permissions})")
+                print(f"👥 Group {group.name}: '{group.share_name}' ({group.permission_mask})")
             for user in shares.users:
-                print(f"👤 User {user.name}: '{user.share_name}' ({user.permissions})")
+                print(f"👤 User {user.name}: '{user.share_name}' ({user.permission_mask})")
 
             # Revoke the account/team share
             lara.memories.revoke_account_share(memory_id)

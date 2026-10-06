@@ -667,6 +667,14 @@ languages = lara.languages()
 print(f"Supported languages: {', '.join(languages)}")
 ```
 
+### Asset permissions
+
+`Memory`, `Glossary`, and `Styleguide` expose `permission_mask: Optional[PermissionMask]`. All existing resource classes and method return types are unchanged. The value is `None` when the API omits the field, including POST, PUT, and DELETE resource responses.
+
+GET list and detail responses contain the combined effective mask from the caller's applicable shares. Resources embedded in GET `/shares` responses contain the selected share's stored mask; individual share entries contain their own stored masks. Masks use read (`r`), write (`w`), export (`e`), and share (`s`) positions, with `-` for absent permissions. Supported values are `r---`, `rw--`, `r-e-`, `r--s`, `rwe-`, `rw-s`, `r-es`, and `rwes`.
+
+Share entries expose a required `permission_mask`, matching the service contract. Resource masks remain optional. The legacy `permissions` field and the `MemorySharePermission`, `GlossarySharePermission`, and `StyleguideSharePermission` aliases have been removed. Use `permission_mask` to inspect the read, write, export, and share bits.
+
 ## ⚙️ Configuration
 ### Error Handling
 

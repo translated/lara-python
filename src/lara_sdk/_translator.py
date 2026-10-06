@@ -23,10 +23,8 @@ ImageGenerativeModel = Literal["generative", "generative_fast"]
 ImageTranslationModel = Union[ImageClassicModel, ImageGenerativeModel]
 ImageTextDirection = Literal["ltr", "rtl", "ttb"]
 ImageTextAlignment = Literal["left", "center", "right"]
-SharePermission = Literal["read", "read_write"]
-MemorySharePermission = SharePermission
-GlossarySharePermission = SharePermission
-StyleguideSharePermission = SharePermission
+# Read, write, export, share; a dash means absent.
+PermissionMask = Literal["r---", "rw--", "r-e-", "r--s", "rwe-", "rw-s", "r-es", "rwes"]
 
 # Objects --------------------------------------------------------------------------------------------------------------
 
@@ -44,6 +42,9 @@ class Memory(LaraObject):
         self.shared_at: datetime = self._parse_date(kwargs.get('shared_at'))
         # The API sends is_personal: true and omits the key otherwise; it never sends false or null.
         self.is_personal: bool = bool(kwargs.get('is_personal'))
+        # Effective combined mask in GET list/detail; selected share's stored mask in GET /shares.
+        # None when omitted by the API, including non-GET responses.
+        self.permission_mask: Optional[PermissionMask] = kwargs.get('permission_mask')
 
 
 class MemoryImport(LaraObject):
@@ -69,6 +70,9 @@ class Glossary(LaraObject):
         self.shared_at: datetime = self._parse_date(kwargs.get('shared_at', None))
         # The API sends is_personal: true and omits the key otherwise; it never sends false or null.
         self.is_personal: bool = bool(kwargs.get('is_personal'))
+        # Effective combined mask in GET list/detail; selected share's stored mask in GET /shares.
+        # None when omitted by the API, including non-GET responses.
+        self.permission_mask: Optional[PermissionMask] = kwargs.get('permission_mask')
 
 class GlossaryImport(LaraObject):
     def __init__(self, **kwargs):
@@ -104,6 +108,9 @@ class Styleguide(LaraObject):
         self.shared_at: datetime = self._parse_date(kwargs.get('shared_at', None))
         # The API sends is_personal: true and omits the key otherwise; it never sends false or null.
         self.is_personal: bool = bool(kwargs.get('is_personal'))
+        # Effective combined mask in GET list/detail; selected share's stored mask in GET /shares.
+        # None when omitted by the API, including non-GET responses.
+        self.permission_mask: Optional[PermissionMask] = kwargs.get('permission_mask')
 
 
 class ResourceShareEntry(LaraObject):
@@ -112,7 +119,8 @@ class ResourceShareEntry(LaraObject):
         self.name: str = kwargs.get('name')
         self.share_name: str = kwargs.get('share_name')
         self.shared_at: datetime = self._parse_date(kwargs.get('shared_at', None))
-        self.permissions: SharePermission = kwargs.get('permissions')
+        # The permissions stored on this share.
+        self.permission_mask: PermissionMask = kwargs['permission_mask']
 
 
 class MemoryShareEntry(ResourceShareEntry):
