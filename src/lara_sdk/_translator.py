@@ -40,8 +40,6 @@ class Memory(LaraObject):
         self.owner_id: str = kwargs.get('owner_id')
         self.collaborators_count: int = kwargs.get('collaborators_count')
         self.shared_at: datetime = self._parse_date(kwargs.get('shared_at'))
-        # The API sends is_personal: true and omits the key otherwise; it never sends false or null.
-        self.is_personal: bool = bool(kwargs.get('is_personal'))
         # Effective combined mask in GET list/detail; selected share's stored mask in GET /shares.
         # None when omitted by the API, including non-GET responses.
         self.permission_mask: Optional[PermissionMask] = kwargs.get('permission_mask')
@@ -68,8 +66,6 @@ class Glossary(LaraObject):
         self.created_at: datetime = self._parse_date(kwargs.get('created_at', None))
         self.updated_at: datetime = self._parse_date(kwargs.get('updated_at', None))
         self.shared_at: datetime = self._parse_date(kwargs.get('shared_at', None))
-        # The API sends is_personal: true and omits the key otherwise; it never sends false or null.
-        self.is_personal: bool = bool(kwargs.get('is_personal'))
         # Effective combined mask in GET list/detail; selected share's stored mask in GET /shares.
         # None when omitted by the API, including non-GET responses.
         self.permission_mask: Optional[PermissionMask] = kwargs.get('permission_mask')
@@ -106,8 +102,6 @@ class Styleguide(LaraObject):
         self.created_at: datetime = self._parse_date(kwargs.get('created_at', None))
         self.updated_at: datetime = self._parse_date(kwargs.get('updated_at', None))
         self.shared_at: datetime = self._parse_date(kwargs.get('shared_at', None))
-        # The API sends is_personal: true and omits the key otherwise; it never sends false or null.
-        self.is_personal: bool = bool(kwargs.get('is_personal'))
         # Effective combined mask in GET list/detail; selected share's stored mask in GET /shares.
         # None when omitted by the API, including non-GET responses.
         self.permission_mask: Optional[PermissionMask] = kwargs.get('permission_mask')
