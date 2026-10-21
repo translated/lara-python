@@ -257,6 +257,54 @@ result = lara.translate(
 )
 ```
 
+#### Text Translation with Image Context
+
+Pass `image_context` to use an image as visual context for translating text, with
+`reasoning=True`:
+
+```python
+result = lara.translate(
+    "Open", source="en-US", target="it-IT",
+    reasoning=True,
+    image_context={"url": "https://example.com/storefront.png"}
+)
+print(result.translation)
+
+# The server reports recovery without images under warnings.reasoning.
+if result.warnings and result.warnings.reasoning:
+    for warning in result.warnings.reasoning.warnings:
+        print(warning.code, warning.message)
+```
+
+You can also supply a single-element list or an inline image:
+
+```python
+import base64
+from pathlib import Path
+from lara_sdk import ImageContext
+
+encoded_image = base64.b64encode(Path("storefront.png").read_bytes()).decode("ascii")
+result = lara.translate(
+    "Open", source="en-US", target="it-IT",
+    reasoning=True,
+    image_context=[ImageContext(url=f"data:image/png;base64,{encoded_image}")]
+)
+```
+
+`ImageContext` is a typed dictionary; plain dictionaries are also accepted. The API
+accepts at most one image: an HTTPS URL or a base64 PNG, JPEG or WebP data URL.
+Inline images must match their declared MIME type and contain at most 5 MiB of
+decoded data; the serialized request body is limited to 16 MiB. Omitting
+`image_context` or passing `[]` preserves text-only behavior. Validation is performed
+by the API, which returns 400 for invalid input and 413 for size violations.
+
+If the image cannot be used, the server may retry the entire request with reasoning
+without images. The result then includes an `image_context_unavailable` warning
+under `warnings.reasoning.warnings`. `warnings.reasoning.applied` is `True` when
+reasoning succeeds without images, or `False` (with an `error` exposing `status_code`
+and `message`) when the server falls back to standard translation. The same warning
+objects are available in translation callbacks.
+
 ### 📖 Document Translation
 #### Simple document translation
 ```python

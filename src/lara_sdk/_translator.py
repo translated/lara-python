@@ -6,7 +6,7 @@ from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import (Callable, Dict, Generic, Iterable, List, Literal, Optional,
-                    Sequence, Tuple, TypeVar, Union, cast, overload)
+                    Sequence, Tuple, TypedDict, TypeVar, Union, cast, overload)
 
 from ._client import LaraClient, LaraObject
 from ._credentials import AccessKey, AuthToken, Credentials
@@ -251,6 +251,57 @@ class NGGlossaryMatch(LaraObject):
         self.term: str = kwargs.get('term')
         self.translation: str = kwargs.get('translation')
 
+class ImageContext(TypedDict):
+    """An HTTPS URL or base64 data URL containing a PNG, JPEG or WebP image."""
+    url: str
+
+
+class IntelligenceError(LaraObject):
+    def __init__(self, **kwargs):
+        self.status_code: int = kwargs.get('statusCode', kwargs.get('status_code'))
+        self.message: str = kwargs.get('message')
+
+
+class IntelligenceFailure(LaraObject):
+    def __init__(self, **kwargs):
+        self.applied: Literal[False] = kwargs.get('applied')
+        self.error = IntelligenceError(**kwargs['error'])
+
+
+class ReferenceRetrievalFailure(LaraObject):
+    def __init__(self, **kwargs):
+        self.applied: Union[Literal[False], Literal['partial']] = kwargs.get('applied')
+        self.error = IntelligenceError(**kwargs['error'])
+
+
+class ReasoningWarning(LaraObject):
+    def __init__(self, **kwargs):
+        self.code: Literal['image_context_unavailable'] = kwargs.get('code')
+        self.message: str = kwargs.get('message')
+
+
+class ReasoningFeedback(LaraObject):
+    def __init__(self, **kwargs):
+        self.applied: bool = kwargs.get('applied')
+        self.error: Optional[IntelligenceError] = (
+            IntelligenceError(**kwargs['error']) if kwargs.get('error') is not None else None
+        )
+        self.warnings: List[ReasoningWarning] = [ReasoningWarning(**w) for w in kwargs.get('warnings', [])]
+
+
+class TextWarnings(LaraObject):
+    def __init__(self, **kwargs):
+        self.reasoning: Optional[ReasoningFeedback] = (
+            ReasoningFeedback(**kwargs['reasoning']) if kwargs.get('reasoning') is not None else None
+        )
+        self.references: Optional[ReferenceRetrievalFailure] = (
+            ReferenceRetrievalFailure(**kwargs['references']) if kwargs.get('references') is not None else None
+        )
+        self.prosa: Optional[IntelligenceFailure] = (
+            IntelligenceFailure(**kwargs['prosa']) if kwargs.get('prosa') is not None else None
+        )
+
+
 class TextResult(LaraObject):
     def __init__(self, **kwargs):
         self.content_type: str = kwargs.get('content_type')
@@ -262,6 +313,9 @@ class TextResult(LaraObject):
         self.glossaries_matches: Optional[Union[List[NGGlossaryMatch], List[Optional[List[NGGlossaryMatch]]]]] = None
         self.profanities: Optional[ProfanitiesResult] = None
         self.styleguide_results: Optional[StyleguideResults] = None
+        self.warnings: Optional[TextWarnings] = (
+            TextWarnings(**kwargs['warnings']) if kwargs.get('warnings') is not None else None
+        )
 
         # Parse profanities
         raw_profanities = kwargs.get('profanities', None)
@@ -1249,6 +1303,7 @@ class Translator:
                   use_cache: Union[bool, UseCache] = None, cache_ttl_s: int = None,
                   no_trace: bool = False, verbose: bool = False, style: Optional[TranslationStyle] = None,
                   headers: Optional[Dict[str, str]] = None, reasoning: bool = False,
+                  image_context: Optional[Union[ImageContext, List[ImageContext]]] = None,
                   metadata: Optional[Union[str, Dict]] = None,
                   profanities_detect: Optional[ProfanitiesDetect] = None,
                   profanities_handling: Optional[ProfanitiesHandling] = None,
@@ -1256,6 +1311,13 @@ class Translator:
                   styleguide_reasoning: Optional[bool] = None,
                   styleguide_explanation_language: Optional[str] = None,
                   callback: Optional[Callable[[TextResult], None]] = None) -> TextResult:
+        """Translate text, optionally using one image as visual context.
+
+        image_context accepts a dictionary with a URL or a single-element list.
+        Non-empty context requires reasoning=True. Inline PNG, JPEG and WebP
+        images are limited to 5 MiB of decoded data. Omit or pass [] for text-only
+        translation. Image validation and recovery are handled by the API.
+        """
         if isinstance(text, str):
             q = text
         elif hasattr(text, '__iter__'):
@@ -1279,6 +1341,7 @@ class Translator:
             'priority': priority.value if priority is not None else None,
             'use_cache': use_cache.value if use_cache is not None else None, 'cache_ttl': cache_ttl_s,
             'glossaries': glossaries, 'verbose': verbose, 'style': style, 'reasoning': reasoning,
+            'image_context': image_context,
             'metadata': metadata,
             'profanities_detect': profanities_detect,
             'profanities_handling': profanities_handling,
