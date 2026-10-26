@@ -49,8 +49,8 @@ def main():
         print()
         
         # List all memories
-        memories = lara.memories.list()
-        print(f"📝 Total memories: {len(memories)}")
+        memories = lara.memories.list_paginated()
+        print(f"📝 Total memories: {memories.total}")
         print()
 
         # Example 2: Adding translations

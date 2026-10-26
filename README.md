@@ -490,6 +490,42 @@ result = lara.audio.get_translated_transcript(audio.id)
 
 ### 🧠 Memory Management
 
+List memories with optional name filtering and pagination:
+
+Supports optional pagination. Called without options, returns the complete list of resources.
+Providing search, page, or size enables pagination.
+
+```python
+from lara_sdk import ResourceQueryOptions
+
+# No parameters: return all memories without pagination.
+memory_result = lara.memories.list_paginated()
+memories = memory_result.items
+memory_total = memory_result.total
+
+# Providing page or size enables pagination (page starts at 1; size: 1-200).
+# The missing parameter defaults to page 1 or size 20.
+memory_page = lara.memories.list_paginated(ResourceQueryOptions(page=2, size=50))
+memory_default_size = lara.memories.list_paginated(ResourceQueryOptions(page=2))
+memory_first_page = lara.memories.list_paginated(ResourceQueryOptions(size=50))
+
+# Pass search to filter by displayed name (case- and accent-insensitive).
+# It matches substrings and preserves spaces.
+# Combine search with page and size to paginate matching results.
+# If omitted, page defaults to 1 and size to 20.
+memory_search = lara.memories.list_paginated(ResourceQueryOptions(
+    search="Marketing",
+    page=2,
+    size=50,
+))
+
+# list() is deprecated; use list_paginated() instead.
+```
+
+Import `ResourceQueryOptions` and `CollectionResult` from `lara_sdk`.
+`total` counts all matching memories, including when the requested page is empty.
+`page` and `size` describe the current page and are `None` when pagination is disabled.
+
 ```python
 # Create memory
 memory = lara.memories.create("MyMemory")
@@ -548,6 +584,42 @@ lara.memories.revoke_account_share(team_memory.id)
 
 ### 📚 Glossary Management
 
+List glossaries with optional name filtering and pagination:
+
+Supports optional pagination. Called without options, returns the complete list of resources.
+Providing search, page, or size enables pagination.
+
+```python
+from lara_sdk import ResourceQueryOptions
+
+# No parameters: return all glossaries without pagination.
+glossary_result = lara.glossaries.list_paginated()
+glossaries = glossary_result.items
+glossary_total = glossary_result.total
+
+# Providing page or size enables pagination (page starts at 1; size: 1-200).
+# The missing parameter defaults to page 1 or size 20.
+glossary_page = lara.glossaries.list_paginated(ResourceQueryOptions(page=2, size=50))
+glossary_default_size = lara.glossaries.list_paginated(ResourceQueryOptions(page=2))
+glossary_first_page = lara.glossaries.list_paginated(ResourceQueryOptions(size=50))
+
+# Pass search to filter by displayed name (case- and accent-insensitive).
+# It matches substrings and preserves spaces.
+# Combine search with page and size to paginate matching results.
+# If omitted, page defaults to 1 and size to 20.
+glossary_search = lara.glossaries.list_paginated(ResourceQueryOptions(
+    search="Marketing",
+    page=2,
+    size=50,
+))
+
+# list() is deprecated; use list_paginated() instead.
+```
+
+Import `ResourceQueryOptions` and `CollectionResult` from `lara_sdk`.
+`total` counts all matching glossaries, including when the requested page is empty.
+`page` and `size` describe the current page and are `None` when pagination is disabled.
+
 ```python
 # Create glossary
 glossary = lara.glossaries.create("MyGlossary")
@@ -594,12 +666,45 @@ lara.glossaries.revoke_account_share(glossary.id)
 
 ### 📋 Styleguide Management
 
+List styleguides with optional name filtering and pagination:
+
+Supports optional pagination. Called without options, returns the complete list of resources.
+Providing search, page, or size enables pagination.
+
+```python
+from lara_sdk import ResourceQueryOptions
+
+# No parameters: return all styleguides without pagination.
+styleguide_result = lara.styleguides.list_paginated()
+styleguides = styleguide_result.items
+styleguide_total = styleguide_result.total
+
+# Providing page or size enables pagination (page starts at 1; size: 1-200).
+# The missing parameter defaults to page 1 or size 20.
+styleguide_page = lara.styleguides.list_paginated(ResourceQueryOptions(page=2, size=50))
+styleguide_default_size = lara.styleguides.list_paginated(ResourceQueryOptions(page=2))
+styleguide_first_page = lara.styleguides.list_paginated(ResourceQueryOptions(size=50))
+
+# Pass search to filter by displayed name (case- and accent-insensitive).
+# It matches substrings and preserves spaces.
+# Combine search with page and size to paginate matching results.
+# If omitted, page defaults to 1 and size to 20.
+styleguide_search = lara.styleguides.list_paginated(ResourceQueryOptions(
+    search="Marketing",
+    page=2,
+    size=50,
+))
+
+# list() is deprecated; use list_paginated() instead.
+```
+
+Import `ResourceQueryOptions` and `CollectionResult` from `lara_sdk`.
+`total` counts all matching styleguides, including when the requested page is empty.
+`page` and `size` describe the current page and are `None` when pagination is disabled.
+
 ```python
 # Create styleguide
 styleguide = lara.styleguides.create("MyStyleguide", "Always use formal language.")
-
-# List all styleguides
-styleguides = lara.styleguides.list()
 
 # Get a specific styleguide
 styleguide = lara.styleguides.get("stg_1A2b3C4d5E6f7G8h9I0jKl")

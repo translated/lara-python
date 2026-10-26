@@ -3,13 +3,18 @@ import datetime
 import hashlib
 import hmac
 import json
+import re
 import time
-from typing import Dict, Optional, Union, List
+from typing import Callable, Dict, List, Optional, Tuple, TypeVar, Union
 
 import requests
 
+from ._collection import CollectionResult
 from ._credentials import AccessKey, AuthToken
-from ._errors import LaraApiError
+from ._errors import LaraApiError, LaraError
+
+
+_T = TypeVar('_T')
 
 
 class LaraObject:
@@ -80,6 +85,42 @@ class LaraClient:
         :return: The JSON response from the API.
         """
         return self._request('GET', path, body=params, headers=headers)
+
+    def get_collection(
+        self, path: str, resource_type: Callable[..., _T], params: Optional[Dict] = None
+    ) -> CollectionResult[_T]:
+        """
+        Sends a GET request and builds a collection of resource objects.
+
+        :param path: The path to send the request to.
+        :param resource_type: Callable that builds a resource from each item's keyword arguments.
+        :param params: Optional name filtering and pagination parameters.
+        :return: Resource items and the total matching count, with page and size metadata
+            set to None when pagination headers are absent or invalid.
+        :raises LaraError: If the X-Total-Count response header is missing or invalid.
+        """
+        body, headers = self._request_with_metadata('GET', path, body=params)
+        headers = {name.lower(): value for name, value in headers.items()}
+
+        def read_integer_header(name: str, minimum: int) -> Optional[int]:
+            value = headers.get(name)
+            if not isinstance(value, str):
+                return None
+            value = value.strip(' \t')
+            if re.fullmatch(r'[0-9]+', value) is None:
+                return None
+            number = int(value)
+            return number if number >= minimum else None
+
+        total = read_integer_header('x-total-count', 0)
+        if total is None:
+            raise LaraError('Missing or invalid X-Total-Count response header')
+        return CollectionResult(
+            items=[resource_type(**item) for item in body],
+            total=total,
+            page=read_integer_header('x-page', 1),
+            size=read_integer_header('x-page-size', 1),
+        )
 
     def delete(self, path: str, params: Dict = None, headers: Dict = None) -> Optional[Union[Dict, List, bytes]]:
         """
@@ -172,8 +213,17 @@ class LaraClient:
                     'Cannot rewind an uploaded file for retry'
                 ) from error
 
-    def _request(self, method: str, path: str, body: Dict = None, files: Dict = None, headers: Dict = None,
-                 retry_count: int = 0) -> Optional[Union[Dict, List, bytes]]:
+    def _request(
+        self, method: str, path: str, body: Dict = None, files: Dict = None,
+        headers: Dict = None, retry_count: int = 0
+    ) -> Optional[Union[Dict, List, bytes]]:
+        result, _ = self._request_with_metadata(method, path, body, files, headers, retry_count)
+        return result
+
+    def _request_with_metadata(
+        self, method: str, path: str, body: Dict = None, files: Dict = None,
+        headers: Dict = None, retry_count: int = 0
+    ) -> Tuple[Optional[Union[Dict, List, bytes]], Dict[str, str]]:
         """
         Execute an authenticated HTTP request with automatic token management.
         """
@@ -210,14 +260,14 @@ class LaraClient:
         # Handle successful responses
         if 200 <= response.status_code < 300:
             if response.status_code == 204:
-                return None
+                return None, response.headers
             content_type = response.headers.get('Content-Type', '')
             if "text/csv" in content_type or "application/xml" in content_type or "image/" in content_type:
-                return response.content
+                return response.content, response.headers
             try:
-                return response.json()
+                return response.json(), response.headers
             except:
-                return None
+                return None, response.headers
 
         # Handle 401 - token expired, refresh and retry once
         if response.status_code == 401 and retry_count < 1:
@@ -225,7 +275,7 @@ class LaraClient:
             self._rewind_files(file_positions)
             self._token = None
             self._refresh_or_reauthenticate()
-            return self._request(method, path, body, files, headers, retry_count=retry_count + 1)
+            return self._request_with_metadata(method, path, body, files, headers, retry_count=retry_count + 1)
 
         raise LaraApiError.from_response(response)
 

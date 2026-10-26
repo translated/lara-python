@@ -1,4 +1,5 @@
 from ._client import LaraObject
+from ._collection import CollectionResult, ResourceQueryOptions
 from ._credentials import AccessKey, AuthToken, Credentials
 from ._errors import LaraApiError, LaraError
 from ._translator import (
@@ -76,6 +77,7 @@ __all__ = [
     "AudioTextSegment",
     "AudioTranslator",
     "AuthToken",
+    "CollectionResult",
     "Credentials",
     "DetectPrediction",
     "DetectResult",
@@ -124,6 +126,7 @@ __all__ = [
     "ReasoningFeedback",
     "ReasoningWarning",
     "ReferenceRetrievalFailure",
+    "ResourceQueryOptions",
     "Styleguide",
     "StyleguideChange",
     "StyleguideResults",

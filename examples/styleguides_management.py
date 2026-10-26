@@ -36,8 +36,8 @@ def main():
         styleguide_id = styleguide.id
 
         # List all styleguides
-        styleguides = lara.styleguides.list()
-        print(f"📝 Total styleguides: {len(styleguides)}")
+        styleguides = lara.styleguides.list_paginated()
+        print(f"📝 Total styleguides: {styleguides.total}")
         print()
 
         # Example 2: Styleguide operations

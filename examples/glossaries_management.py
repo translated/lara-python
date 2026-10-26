@@ -39,8 +39,8 @@ def main():
         glossary_id = glossary.id
         
         # List all glossaries
-        glossaries = lara.glossaries.list()
-        print(f"📝 Total glossaries: {len(glossaries)}")
+        glossaries = lara.glossaries.list_paginated()
+        print(f"📝 Total glossaries: {glossaries.total}")
         print()
 
         # Example 2: Glossary operations

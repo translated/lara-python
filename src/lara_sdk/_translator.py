@@ -1,7 +1,8 @@
 import json
 import mimetypes
 import time
-from dataclasses import dataclass
+import warnings
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
@@ -9,6 +10,7 @@ from typing import (Callable, Dict, Generic, Iterable, List, Literal, Optional,
                     Sequence, Tuple, TypedDict, TypeVar, Union, cast, overload)
 
 from ._client import LaraClient, LaraObject
+from ._collection import CollectionResult, ResourceQueryOptions
 from ._credentials import AccessKey, AuthToken, Credentials
 from ._errors import LaraApiError
 from ._s3client import S3Client, S3UploadFields
@@ -381,7 +383,29 @@ class Memories:
         self._polling_interval: int = 2
 
     def list(self) -> List[Memory]:
+        """
+        .. deprecated:: 1.16.0
+            Use `list_paginated` instead.
+        """
+        warnings.warn(
+            'list() is deprecated. Use list_paginated() instead.',
+            DeprecationWarning,
+            stacklevel=2
+        )
         return [Memory(**e) for e in self._client.get('/v2/memories')]
+
+    def list_paginated(self, options: Optional[ResourceQueryOptions] = None) -> CollectionResult[Memory]:
+        """
+        Supports optional pagination. Called without options, returns the complete list of resources.
+        Providing search, page, or size enables pagination.
+
+        :param options: Query options.
+        :return: A collection whose items contain the requested memories and whose total counts
+            all matches. Page and size are None for an unpaginated response.
+        """
+        return self._client.get_collection(
+            '/v2/memories', Memory, asdict(options) if options is not None else None
+        )
 
     def create(self, name: str, external_id: str = None) -> Memory:
         return Memory(**self._client.post('/v2/memories', {
@@ -499,7 +523,29 @@ class Glossaries:
         self._polling_interval: int = 2
 
     def list(self) -> List[Glossary]:
+        """
+        .. deprecated:: 1.16.0
+            Use `list_paginated` instead.
+        """
+        warnings.warn(
+            'list() is deprecated. Use list_paginated() instead.',
+            DeprecationWarning,
+            stacklevel=2
+        )
         return [Glossary(**e) for e in self._client.get('/v2/glossaries')]
+
+    def list_paginated(self, options: Optional[ResourceQueryOptions] = None) -> CollectionResult[Glossary]:
+        """
+        Supports optional pagination. Called without options, returns the complete list of resources.
+        Providing search, page, or size enables pagination.
+
+        :param options: Query options.
+        :return: A collection whose items contain the requested glossaries and whose total counts
+            all matches. Page and size are None for an unpaginated response.
+        """
+        return self._client.get_collection(
+            '/v2/glossaries', Glossary, asdict(options) if options is not None else None
+        )
 
     def create(self, name: str) -> Glossary:
         return Glossary(**self._client.post('/v2/glossaries', {
@@ -622,7 +668,29 @@ class Styleguides:
         self._client: LaraClient = client
 
     def list(self) -> List[Styleguide]:
+        """
+        .. deprecated:: 1.16.0
+            Use `list_paginated` instead.
+        """
+        warnings.warn(
+            'list() is deprecated. Use list_paginated() instead.',
+            DeprecationWarning,
+            stacklevel=2
+        )
         return [Styleguide(**e) for e in self._client.get('/v2/styleguides')]
+
+    def list_paginated(self, options: Optional[ResourceQueryOptions] = None) -> CollectionResult[Styleguide]:
+        """
+        Supports optional pagination. Called without options, returns the complete list of resources.
+        Providing search, page, or size enables pagination.
+
+        :param options: Query options.
+        :return: A collection whose items contain the requested styleguides and whose total counts
+            all matches. Page and size are None for an unpaginated response.
+        """
+        return self._client.get_collection(
+            '/v2/styleguides', Styleguide, asdict(options) if options is not None else None
+        )
 
     def create(self, name: str, content: str) -> Styleguide:
         return Styleguide(**self._client.post('/v2/styleguides', {
