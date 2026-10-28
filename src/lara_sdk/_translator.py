@@ -15,6 +15,7 @@ from ._credentials import AccessKey, AuthToken, Credentials
 from ._errors import LaraApiError
 from ._s3client import S3Client, S3UploadFields
 
+ReasoningEffort = Literal["low", "medium", "high"]
 TranslationStyle = Literal["faithful", "fluid", "creative"]
 ProfanitiesDetect = Literal["target", "source_target"]
 ProfanitiesHandling = Literal["hide", "avoid", "detect"]
@@ -1371,6 +1372,7 @@ class Translator:
                   use_cache: Union[bool, UseCache] = None, cache_ttl_s: int = None,
                   no_trace: bool = False, verbose: bool = False, style: Optional[TranslationStyle] = None,
                   headers: Optional[Dict[str, str]] = None, reasoning: bool = False,
+                  effort: Optional[ReasoningEffort] = None,
                   image_context: Optional[Union[ImageContext, List[ImageContext]]] = None,
                   metadata: Optional[Union[str, Dict]] = None,
                   profanities_detect: Optional[ProfanitiesDetect] = None,
@@ -1380,6 +1382,9 @@ class Translator:
                   styleguide_explanation_language: Optional[str] = None,
                   callback: Optional[Callable[[TextResult], None]] = None) -> TextResult:
         """Translate text, optionally using one image as visual context.
+
+        effort accepts "low", "medium", or "high" and requires reasoning=True.
+        Omit it to use the server default.
 
         image_context accepts a dictionary with a URL or a single-element list.
         Non-empty context requires reasoning=True. Inline PNG, JPEG and WebP
@@ -1409,6 +1414,7 @@ class Translator:
             'priority': priority.value if priority is not None else None,
             'use_cache': use_cache.value if use_cache is not None else None, 'cache_ttl': cache_ttl_s,
             'glossaries': glossaries, 'verbose': verbose, 'style': style, 'reasoning': reasoning,
+            'effort': effort,
             'image_context': image_context,
             'metadata': metadata,
             'profanities_detect': profanities_detect,
