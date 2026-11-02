@@ -259,13 +259,13 @@ result = lara.translate(
 
 #### Reasoning Effort
 
-Set `effort` to `low`, `medium`, or `high` to control translation reasoning effort.
+Set `reasoning_effort` to `low`, `medium`, or `high` to control translation reasoning effort.
 Reasoning must be enabled. Omit the option to use the server default; the API
 validates the combination.
 
 ```python
 result = lara.translate(
-    "Hello", source="en-US", target="it-IT", reasoning=True, effort="high"
+    "Hello", source="en-US", target="it-IT", reasoning=True, reasoning_effort="high"
 )
 ```
 
