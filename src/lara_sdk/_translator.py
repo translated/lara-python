@@ -1390,7 +1390,16 @@ class Translator:
         Non-empty context requires reasoning=True. Inline PNG, JPEG and WebP
         images are limited to 5 MiB of decoded data. Omit or pass [] for text-only
         translation. Image validation and recovery are handled by the API.
+
+        :param multiline: Deprecated.
         """
+        if multiline is not None:
+            warnings.warn(
+                "The 'multiline' parameter is deprecated.",
+                DeprecationWarning,
+                stacklevel=2
+            )
+
         if isinstance(text, str):
             q = text
         elif hasattr(text, '__iter__'):
